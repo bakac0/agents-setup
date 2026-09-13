@@ -1,202 +1,97 @@
-# Global AI Engineering Workflow
-
-These rules apply to all projects unless a project-level AGENTS.md
-provides more specific instructions.
-
-## Core workflow
-
-Use this lifecycle for substantial development work:
-
-DISCOVER
-→ DESIGN
-→ SIMPLIFY
-→ SPECIFY
-→ PLAN
-→ IMPLEMENT
-→ REVIEW
-→ VERIFY
-
-Do not jump directly from an ambiguous request to implementation.
-
-
-## Discovery
-
-For new, ambiguous, or product-level work prefer:
-
-- `grill-with-docs`
-- `domain-modeling`
-
-Clarify:
-
-- purpose
-- users
-- constraints
-- success criteria
-- domain terminology
-- important edge cases
-
-If project-specific CONTEXT.md exists, use it as the domain vocabulary
-source of truth.
-
-
-## Architecture
-
-Use:
-
-- `codebase-design` for module/interface/boundary design
-- Context7 when current third-party API/framework behaviour matters
-- `prototype` when an important technical assumption needs evidence
-
-Before accepting substantial architecture, use:
-
-- `chisel`
-
-Specifically look for unnecessary:
-
-- services
-- managers
-- adapters
-- layers
-- interfaces
-- queues
-- databases
-- abstractions
-- indirection
-
-Prefer the simplest architecture that satisfies known requirements.
-
-
-## Specification
-
-Do not create documentation ceremony for small tasks.
-
-If work is expected to span multiple sessions, use:
-
-- `to-spec`
-- `to-tickets`
-
-Use `wayfinder` only for genuinely large long-horizon work.
-
-
-## Planning and implementation
-
-Superpowers owns execution discipline.
-
-Prefer:
-
-- explicit implementation plans for non-trivial work
-- isolated git worktrees where useful
-- TDD
-- small coherent changes
-- parallel subagents only for independent work
-- systematic debugging instead of speculative fixes
-
-Do not silently change agreed architecture during implementation.
-
-If implementation exposes an architectural contradiction,
-escalate it before continuing.
-
-
-## Agent roles
-
-Use specialized agents where appropriate:
-
-- Architect
-- Researcher
-- Implementer
-- Reviewer
-- Verifier
-
-Do not let the same agent both implement a substantial change
-and act as its only reviewer.
-
-
-## Review
-
-Review separately:
-
-1. requirements/spec compliance
-2. architecture compliance
-3. correctness
-4. regression risk
-5. security
-6. missing tests
-7. unnecessary complexity
-8. maintainability
-
-Reviewer should report findings rather than fixing its own findings.
-
-
-## Verification
-
-Never claim completion without fresh verification evidence.
-
-Run applicable:
-
-- unit tests
-- integration tests
-- typecheck
-- lint
-- build
-- acceptance tests
-
-For web applications, verify important user flows with Playwright CLI.
-
-A successful command from earlier in the session is not fresh evidence
-after subsequent code changes.
-
-
-## External documentation
-
-When exact behaviour of a third-party framework/library/API matters,
-consult current documentation via Context7 before coding.
-
-Do not use external documentation unnecessarily for ordinary business logic.
-
-
-## Communication
-
-Implementation, research, and verification reports should be concise.
-
-Caveman-style output is appropriate for:
-
-- implementation summaries
-- researcher summaries
-- test reports
-- subagent reports
-
-Do not aggressively compress:
-
-- requirements interviews
-- architectural trade-off discussions
-- ADRs
-- security decisions
-
-
-## Safety
-
-Architect and Reviewer should be read-only whenever the harness permits it.
-
-Do not:
-
-- push
-- merge
-- publish
-- release
-- delete important data
-- perform irreversible operations
-
-without explicit user approval.
-
-
-## Project overrides
-
-Project-level AGENTS.md files may define:
-
-- build/test commands
-- architecture constraints
-- framework conventions
-- repository-specific workflow
-- project-specific verification requirements
-
-Project rules take precedence over these global defaults.
+# Общие инструкции для ИИ
+
+Эти правила задают инженерный workflow проекта. Прямые указания пользователя и конкретные проектные правила имеют приоритет над общими рекомендациями.
+
+## Контекст и рабочие принципы
+
+- Перед работой прочитай проектные инструкции, настройку tracker, относящиеся к задаче spec, tickets, исследования и ADR. Используй `CONTEXT.md` как источник доменной терминологии; при наличии `CONTEXT-MAP.md` выбери нужный контекст.
+- Проверь текущий код, тесты, состояние Git и команды проверок. Сохраняй изменения пользователя и не предполагай, что рабочее дерево чистое.
+- Перед применением навыка прочитай его `SKILL.md` и необходимые зависимости. Проверяй доступность в текущем окружении; не заявляй об использовании отсутствующего навыка. Сообщи о недоступности и используй доступный эквивалент, если это позволяет выполнить задачу.
+- Масштабируй процесс под задачу. Для небольшого исправления не создавай отдельную spec и tickets ради формальности. Не начинай реализацию неоднозначной идеи без уточнения требований.
+- Выполняй согласованную работу автономно. Не запрашивай повторное разрешение на уже разрешённые действия; уточняй отсутствующие продуктовые решения и существенные изменения scope.
+
+## Основной lifecycle
+
+```text
+IDEA
+  → grill-with-docs
+      grilling + domain-modeling
+      research / Context7, codebase-design
+      prototype при необходимости
+  → DESIGN APPROVED
+  → to-spec
+  → to-tickets
+
+──── граница проектирования / реализации ────
+
+ticket → using-git-worktrees
+  ├─ простой ticket → TDD
+  └─ сложный ticket → writing-plans
+                     → executing-plans или subagent-driven-development
+                     → TDD
+  → verification-before-completion
+  → chisel, если есть что упрощать
+  → verification повторно после изменений
+  → Matt code-review
+  → finishing-a-development-branch
+  → PR / merge в пределах разрешения пользователя
+```
+
+TDD означает `superpowers:test-driven-development`. Навыки worktrees, планирования, исполнения, verification и завершения ветки относятся к Superpowers. Итоговый Matt `code-review` — навык этого инженерного набора; промежуточные проверки исполнителя его не заменяют.
+
+## Проектирование и согласование
+
+1. Используй `grill-with-docs` как вход в проектирование: `grilling` уточняет требования, `domain-modeling` закрепляет термины и значимые решения. Не проводи повторное полное интервью, если ответы уже зафиксированы.
+2. Определи проблему, пользователей, ограничения, границы scope, критерии успеха и крайние случаи. Для фичи существующего проекта сначала изучи текущее поведение и явно учти совместимость, данные и затрагиваемые сценарии.
+3. Подключай `research` для вопросов, требующих исследования. Для точного поведения сторонних библиотек и API используй Context7 и первичные документы. Обычную внутреннюю логику изучай по коду и тестам без ненужного внешнего поиска.
+4. Используй `codebase-design` для границ модулей и внешних контрактов. Предпочитай маленькие интерфейсы, существующие точки тестирования и минимум новых слоёв. Не добавляй сервисы, managers, adapters, очереди или базы без подтверждённой потребности.
+5. Используй `prototype`, только когда решение требует эксперимента. Зафиксируй вопрос, критерий эксперимента и вывод. Прототип не становится production-кодом автоматически.
+6. `DESIGN APPROVED` означает, что пользователь принял решение и scope, критерии приёмки определены, блокирующие неизвестные разрешены. Уже данное согласование учитывай; не создавай дополнительный ритуал подтверждения.
+7. После согласования используй `to-spec` для синтеза требований, затем `to-tickets` для разбиения работы. Spec описывает поведение и ограничения; tickets — самостоятельно проверяемые вертикальные срезы и зависимости. Конкретные файлы и шаги реализации относятся к плану.
+
+Для больших проектов с множеством связанных неизвестных используй `wayfinder` до фиксации решения. Для обычной фичи достаточно целевого исследования и списка открытых вопросов.
+
+## Исследования и накопление знаний
+
+- До исследования зафиксируй вопрос, границы и связанные spec/tickets. Прочитай предыдущие результаты; дополняй их, не повторяя уже выполненную работу без причины.
+- Сохраняй отчёт в принятом проектом месте; по умолчанию — `docs/research/YYYY-MM-DD-<topic>.md`. Указывай дату, версии или commit, факты и источники, предположения, неизвестное, варианты, рекомендацию и влияние на текущую работу.
+- Разделяй доказательства и предположения. Помечай устаревшие или опровергнутые выводы и сохраняй историю существенных пересмотров. Не выдавай прежние результаты за свежую проверку.
+- После принятия рекомендации обновляй затронутые spec, критерии и зависимости tickets, невыполненные шаги плана. Сохраняй ссылки на исследование; результат не должен оставаться только в чате.
+- `CONTEXT.md` содержит только доменный словарь. ADR нужен для трудно обратимого решения с реальными альтернативами, причины которого будут непонятны без контекста. Не помещай туда весь отчёт или каждое мелкое решение.
+- При противоречии принятой архитектуре останови зависимую работу, опиши противоречие и согласуй изменение. Затем обнови документы и план; не меняй архитектуру молча.
+
+## Граница проектирования и реализации
+
+- До перехода к реализации должны быть доступны согласованная spec и выбранный ticket либо достаточные требования небольшой задачи. У выбранного ticket нет незавершённых блокеров.
+- Сохраняй связный контекст до завершения проектирования, spec и tickets. Реализацию самостоятельного ticket можно начинать в свежей сессии, передав ссылки на артефакты.
+- Для каждого ticket используй `superpowers:using-git-worktrees`, чтобы создать или проверить изолированное рабочее место. Не создавай второй worktree, если подходящая изоляция уже есть. Явное указание пользователя работать в текущем checkout учитывай.
+- Простой ticket с понятным локальным изменением и способом проверки выполняй через TDD без отдельного подробного плана.
+- Сложный ticket с несколькими зависимыми шагами, миграцией или изменением нескольких контрактов сначала передай в `superpowers:writing-plans`. Если неизвестно само решение, вернись к проектированию, а не скрывай неизвестное внутри плана.
+- План должен ссылаться на spec и ticket, фиксировать ограничения, файлы, интерфейсы, небольшие шаги и конкретные проверки с ожидаемыми результатами. Каждому критерию приёмки соответствует проверка. Не оставляй TBD и общие фразы вместо исполнимых шагов.
+- Исполняй сложный ticket через `superpowers:executing-plans` либо `superpowers:subagent-driven-development`, учитывая выбранный пользователем режим и возможности среды. TDD применяется внутри реализации каждого изменения поведения.
+- Если запрос ограничен исследованием, проектированием или планом, сохрани результат и не переходи самовольно к реализации.
+
+## Реализация и роли
+
+- Следуй циклу: тест на требуемое внешнее поведение → ожидаемое падение → минимальная реализация → успешные проверки → refactor. Не создавай тесты, которые лишь повторяют текст документации или тривиальные настройки.
+- При баге или неожиданном результате сначала используй `superpowers:systematic-debugging`: воспроизведение, причина, regression test, исправление. Не накапливай спекулятивные правки.
+- Делай небольшие связные изменения. При создании коммитов используй Conventional Commits.
+- Используй роли Architect, Researcher, Implementer, Reviewer и Verifier там, где это полезно. Делегируй параллельно только независимую работу с чёткими границами; зависимые шаги выполняй последовательно.
+- Architect и Reviewer работают без записи файлов, когда среда позволяет. Автор существенного изменения не должен быть его единственным reviewer. Reviewer сообщает замечания, Implementer исправляет их.
+
+## Проверки, упрощение и итоговый review
+
+1. После реализации используй `superpowers:verification-before-completion`. Выполни применимые unit/integration tests, typecheck, lint и build из проекта; важные web-сценарии проверь через Playwright CLI. Сопоставь результат с критериями приёмки.
+2. Если есть что упростить, используй `chisel` в границах ticket. Убирай лишнюю сложность, сохраняя требуемое поведение и принятую архитектуру. Не превращай этап в посторонний рефакторинг.
+3. После изменений от `chisel` повтори затронутые проверки. Если изменений нет и состояние прежнее, не повторяй команды ради формальности.
+4. Выполни Matt `code-review` относительно зафиксированной точки Git и исходной spec. Убедись, что review охватывает весь итоговый diff, включая нужные незакоммиченные изменения; сравнение только с HEAD не подтверждает непроверенное рабочее дерево.
+5. Проверь отдельно соответствие стандартам и spec. Также оцени архитектуру, корректность, регрессии, безопасность, тесты, сложность и сопровождаемость. Промежуточный review при исполнении не заменяет итоговый review.
+6. Исправь замечания, повтори применимые проверки и review затронутых изменений. Любая последующая правка требует актуальных доказательств; успешные проверки прежней версии не подтверждают новую.
+7. Только после успешных проверок и разрешения существенных замечаний переходи к `superpowers:finishing-a-development-branch` и выбранному способу интеграции. Push, merge, публикация, release, удаление важных данных и необратимые операции требуют явного разрешения пользователя. Наличие этапа PR / merge в схеме само по себе таким разрешением не является.
+
+## Завершение и продолжение
+
+- Отмечай шаги и tickets выполненными по фактическому результату. Сохраняй принятые решения, статусы, блокеры, результаты проверок и следующий шаг в проектных артефактах.
+- Для передачи используй `handoff`: ссылки на spec, исследования, ADR, tickets и план вместо копирования документов. Не включай секреты. Долговременные результаты храни в проекте, а не только во временном handoff.
+- При продолжении сверяй план и статусы с текущим кодом и Git. Выбирай следующий ticket с завершёнными блокерами; при изменившихся требованиях актуализируй план до исполнения.
+- В отчёте укажи, что изменилось, что проверено и какие ограничения остались. Не заявляй о готовности без свежих доказательств. Пиши кратко; `caveman` допустим для статусов, но не должен ухудшать обсуждение требований, компромиссов и безопасности.

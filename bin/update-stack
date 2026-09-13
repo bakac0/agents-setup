@@ -42,15 +42,20 @@ npx -y skills@latest add mattpocock/skills \
   -a codex \
   --skill setup-matt-pocock-skills \
   --skill ask-matt \
+  --skill grilling \
   --skill grill-with-docs \
   --skill domain-modeling \
   --skill codebase-design \
+  --skill research \
   --skill prototype \
   --skill handoff \
   --skill to-spec \
   --skill to-tickets \
   --skill code-review \
-  --skill wayfinder
+  --skill wayfinder \
+  --skill wait-what \
+  --skill wizard \
+  --skill writing-for-agents
 
 echo
 echo "== Chisel =="

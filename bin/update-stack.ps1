@@ -4,7 +4,13 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $Shared   = Join-Path $HOME '.agents\skills'
-$OpenCode = Join-Path $HOME '.config\opencode\skills'
+$OpenCodeConfigDir = if ($env:OPENCODE_CONFIG_DIR) {
+    $env:OPENCODE_CONFIG_DIR
+}
+else {
+    Join-Path $HOME '.config\opencode'
+}
+$OpenCode = Join-Path $OpenCodeConfigDir 'skills'
 $Codex    = Join-Path $HOME '.codex\skills'
 
 $SuperpowersOpenCode = 'superpowers@git+https://github.com/obra/superpowers.git'
@@ -117,15 +123,20 @@ Invoke-Native -FilePath $Npx -Arguments @(
     '-a', 'codex',
     '--skill', 'setup-matt-pocock-skills',
     '--skill', 'ask-matt',
+    '--skill', 'grilling',
     '--skill', 'grill-with-docs',
     '--skill', 'domain-modeling',
     '--skill', 'codebase-design',
+    '--skill', 'research',
     '--skill', 'prototype',
     '--skill', 'handoff',
     '--skill', 'to-spec',
     '--skill', 'to-tickets',
     '--skill', 'code-review',
-    '--skill', 'wayfinder'
+    '--skill', 'wayfinder',
+    '--skill', 'wait-what',
+    '--skill', 'wizard',
+    '--skill', 'writing-for-agents'
 )
 
 Write-Host
@@ -202,9 +213,9 @@ Write-Host 'Done.'
 Write-Host
 Write-Host 'Restart OpenCode and Codex.'
 Write-Host "Shared skills: $Shared"
-Write-Host 'Superpowers for Codex: installed/updated as a plugin.'
+Write-Host 'Superpowers for Codex: install as a plugin.'
 Write-Host
 Write-Host 'OpenCode Superpowers (one-time manual setup):'
-Write-Host '  Edit: ~/.config/opencode/opencode.json (or opencode.jsonc)'
+Write-Host "  Edit: $OpenCodeConfigDir/opencode.json (or opencode.jsonc)"
 Write-Host '  Add to the top-level "plugin" array:'
 Write-Host "    `"$SuperpowersOpenCode`""
