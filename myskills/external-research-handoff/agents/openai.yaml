@@ -1,0 +1,14 @@
+interface:
+  display_name: External Research Handoff
+  short_description: Offload research through project Markdown files
+  default_prompt: Use $external-research-handoff to prepare a separate ChatGPT research
+    request and resume from its result.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

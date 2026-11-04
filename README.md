@@ -1,68 +1,87 @@
 # Engineering Skills
 
-Набор навыков для разработки от идеи до проверенного изменения. Этот README объясняет установку и использование. `AGENTS.md` содержит общие инструкции для ИИ.
+Набор навыков и инструментов разработки. Для установки нужны только один скрипт
+своей платформы, Git и Node.js 18+ с npm/npx. Скрипт можно запускать из любого каталога.
 
-## Установка и обновление
+## Установка и обновление одной командой
 
-Команды ниже предполагают, что этот репозиторий расположен в `~/.agents`. Если он находится в другом месте, укажи фактический путь к скрипту. Нужны Node.js, npm, npx и доступ к источникам пакетов; для Windows — PowerShell 5.1 или новее.
-
-### Windows
-
-```powershell
-& "$HOME\.agents\bin\update-stack.ps1"
-```
-
-Необязательно: перед запуском задать собственный каталог конфигурации OpenCode:
+Windows (PowerShell):
 
 ```powershell
-$env:OPENCODE_CONFIG_DIR = 'D:\Config\OpenCode'
-& "$HOME\.agents\bin\update-stack.ps1"
+& "$HOME\.agents\bin\install-all.ps1"
 ```
 
-### Linux / WSL
+Linux / macOS / WSL:
 
 ```bash
-bash "$HOME/.agents/bin/update-stack"
+bash "$HOME/.agents/bin/install-all.sh"
 ```
 
-В WSL должны использоваться Linux-версии Node.js, npm и npx. Скрипт отклоняет npm/npx из `/mnt/c/`.
+Повторный запуск этой же команды обновляет комплект. Никаких флагов выбора
+компонентов, отдельных extras, вспомогательных скриптов или шаблонов не требуется.
+Если репозиторий находится в другом каталоге, укажи фактический путь к скрипту.
+При ограниченной Windows execution policy можно запустить через
+`powershell -NoProfile -ExecutionPolicy Bypass -File .\bin\install-all.ps1`.
 
-Для другого каталога OpenCode:
+Если OpenCode не найден в PATH, скрипт пишет об этом, обновляет общие навыки и
+Playwright и пропускает всю OpenCode-секцию. Сам OpenCode не устанавливается.
+При наличии клиента требуется стабильная версия 2.0.4+ и <3.
+Для Linux OpenCode-секции нужен curl; в WSL используются Linux Node.js и OpenCode.
 
-```bash
-OPENCODE_CONFIG_DIR="$HOME/custom-opencode" bash "$HOME/.agents/bin/update-stack"
-```
+## Что устанавливается
 
-### Что делают скрипты
-
-Обе версии обновляют существующие глобальные навыки, добавляют выбранные навыки Matt Pocock, Chisel, Caveman и Context7, устанавливают Context7 CLI и Playwright CLI, затем синхронизируют общие навыки с клиентами.
-
-| Назначение | Путь по умолчанию |
+| Компонент | Установка и повторное обновление |
 | --- | --- |
-| Общие навыки | `~/.agents/skills` |
-| Навыки Codex | `~/.codex/skills` |
-| Навыки OpenCode | `~/.config/opencode/skills` |
+| 16 skills Matt Pocock, Chisel, Caveman | Менеджер skills; общий каталог ~/.agents/skills, интеграции Codex и доступного OpenCode |
+| Playwright CLI и skill | npm @playwright/cli@latest и глобальная установка skill |
+| Superpowers | OpenCode plugin из Git-репозитория obra/superpowers |
+| LiteLLM | opencode-plugin-litellm@latest |
+| Context7 | Глобальный удалённый MCP context7: https://mcp.context7.com/mcp; не подменяется CLI |
+| Ponytail и DCP | Плагины OpenCode; новый конфиг Ponytail начинает с lite |
+| Beads | CLI @beads/bd@latest и plugin opencode-beads с OpenCode 2.1.2+ |
+| Subagent Intervene | Плагин управления сабагентами с OpenCode 2.2.0+ |
+| Status Line | Свежий npm-пакет в каталоге OpenCode/cli-packages, ссылка на него в cli.json |
+| Reviewer | Агент reviewer с запретом инструмента edit и инструкцией read-only; создаётся, если отсутствует |
+| Serena | Изолированное окружение uv из serena-agent@latest и глобальный MCP serena |
+| ProjectMem | Изолированное окружение uv из projectmem@latest и глобальный MCP projectmem |
+| Plannotator | Свежий бинарник из официального installer и плагин OpenCode |
+| RTK | Windows: winget или Cargo; Linux/macOS: Homebrew, Cargo или официальный installer |
 
-На Linux создаются символические ссылки, на Windows — directory junctions. Одноимённые каталоги в каталогах навыков клиентов заменяются ссылками. Собственные изменения следует хранить в общем каталоге и сохранять в Git; обновление сторонних навыков может их затронуть.
+Python 3.13 для Serena и ProjectMem при необходимости загружается через uv.
+Системный Python не требуется. В Windows для RTK нужен winget или Cargo.
+Плагины OpenCode обновляются менеджером plugins, включая уже настроенные плагины.
+Удалённый Context7 обслуживается сервером и не требует локального обновления пакета.
+Коды ошибок установки не маскируются итоговым сообщением об успехе.
 
-Текущий список Matt Pocock в обоих скриптах:
+MCP-команды Serena и ProjectMem обновляются на изолированный запуск uv; остальные
+MCP, reviewer и Ponytail-конфиг сохраняются. Редактор cli.json
+сохраняет посторонние JSON-значения; комментарии JSONC в этом файле не поддерживает.
+Конфиги OpenCode по умолчанию находятся в ~/.config/opencode; другой каталог можно
+задать через OPENCODE_CONFIG_DIR. Менеджер skills может обновлять управляемые им
+навыки; локальные изменения заранее сохрани. Нестандартный AGENTS_SKILLS_DIR не поддерживается.
 
-```text
-setup-matt-pocock-skills  ask-matt           grilling
- grill-with-docs         domain-modeling    codebase-design
- research                prototype          handoff
- to-spec                 to-tickets         code-review
- wayfinder               wait-what          wizard
- writing-for-agents
-```
+После установки скрипт выводит список плагинов и MCP. Context7 может запросить
+вход в браузере при первом обращении (`opencode mcp auth context7`). LiteLLM требует
+настройки твоего провайдера. Браузер Playwright при необходимости устанавливается
+командой `playwright-cli install-browser`. RTK устанавливается без OpenCode hook.
 
-Superpowers подключается отдельно. В Codex установи плагин Superpowers через доступный каталог плагинов. Для OpenCode скрипт печатает путь к `opencode.json` / `opencode.jsonc` и строку, которую нужно добавить в существующий верхнеуровневый массив `plugin`, сохранив остальные записи:
+Проектная память и Beads в Git-проектах автоматически не инициализируются.
+Для памяти внутри нужного репозитория запусти команду pjm, напечатанную установщиком,
+с `init --no-global`; затем проверь изменения инструкций и Git hooks перед коммитом.
+Скрипты не выполняют commit/push и не устанавливают экспериментальные наборы ECC/OMO.
+Установка требует интернета, не транзакционная; после устранения ошибки повтори ту же команду.
 
-```json
-"superpowers@git+https://github.com/obra/superpowers.git"
-```
+Проверено 4 ноября 2026 года: полный запуск на Windows с OpenCode 2.2.5 завершился
+успешно; семь серверных плагинов актуальны, Context7/ProjectMem/Serena подключены.
+Beads 1.3.4, Plannotator 0.28.48, RTK 1.1.0 и Status Line 1.2.0 установлены.
+Оба самостоятельных скрипта также проверены в пустых каталогах: пропуск OpenCode,
+повторное обновление и сохранение настроек. Нативная установка на Linux не выполнялась.
 
-Скрипты сами не устанавливают Superpowers. После обновления перезапусти Codex и OpenCode и проверь список доступных навыков. Наличие навыка в списке скрипта означает, что он запрашивается при установке; доступность в конкретной сессии нужно проверить после успешного запуска.
+Источники: [OpenCode plugins](https://opencode.ai/v2/docs/plugins),
+[OpenCode MCP](https://opencode.ai/v2/docs/mcp-servers),
+[Context7 для OpenCode](https://context7.com/docs/clients/opencode),
+[Superpowers](https://github.com/obra/superpowers/blob/main/.opencode/INSTALL.md),
+[Plannotator](https://github.com/backnotprop/plannotator/tree/main/apps/opencode-plugin).
 
 ## Подготовка каждого проекта
 
