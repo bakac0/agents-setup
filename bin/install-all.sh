@@ -53,10 +53,10 @@ if command -v opencode >/dev/null 2>&1; then
   has_opencode=true
   version="$(opencode --version 2>&1)"
   if [[ ! "$version" =~ ^(opencode[[:space:]]+)?v?2\.([0-9]+)\.([0-9]+)[[:space:]]*$ ]]; then
-    echo "Stable OpenCode >=2.0.4 and <3 required; found: $version" >&2; exit 1
+    echo "Stable OpenCode >=2.2.5 and <3 required; found: $version" >&2; exit 1
   fi
   minor="${BASH_REMATCH[2]}"; patch="${BASH_REMATCH[3]}"
-  if (( minor == 0 && patch < 4 )); then echo 'Superpowers requires OpenCode >=2.0.4.' >&2; exit 1; fi
+  if (( minor < 2 || (minor == 2 && patch < 5) )); then echo 'Serena idle lifecycle requires OpenCode >=2.2.5.' >&2; exit 1; fi
   command -v curl >/dev/null 2>&1 || { echo 'curl is required for OpenCode tools.' >&2; exit 1; }
   edit_cli check
 else
@@ -131,7 +131,7 @@ ponytail_dir="${PONYTAIL_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/ponytail}
 if [[ ! -e "$ponytail_dir/config.json" ]]; then
   mkdir -p "$ponytail_dir"; printf '%s\n' '{"defaultMode":"lite"}' > "$ponytail_dir/config.json"
 fi
-npm install --prefix "$cli_packages" --no-save --package-lock=false @rashidrazak/opencode-status-line@latest
+npm install --prefix "$cli_packages" --no-save --package-lock=false @rashidrazak/opencode-status-line@latest jsonc-parser@3.3.1
 edit_cli
 mkdir -p "$config_dir/agents"
 if [[ ! -e "$config_dir/agents/reviewer.md" ]]; then
@@ -159,6 +159,59 @@ Check requirements, correctness, regressions, security and tests. Modify no file
 AGENT
 fi
 
+configure_serena_lifecycle() {
+  node - "$config_dir" "$cli_packages/node_modules/jsonc-parser" <<'JS'
+const fs = require('node:fs');
+const path = require('node:path');
+const jsonc = require(process.argv[3]);
+const configDir = process.argv[2];
+const candidates = ['opencode.json', 'opencode.jsonc'];
+const matches = [];
+let hasIdleTimeout = false;
+for (const name of candidates) {
+  const file = path.join(configDir, name);
+  if (!fs.existsSync(file)) continue;
+  const source = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '');
+  const errors = [];
+  const config = jsonc.parse(source, errors, { allowTrailingComma: true });
+  if (errors.length) throw Error(`Cannot parse ${file}: ${JSON.stringify(errors)}`);
+  if (config?.experimental?.location_idle_timeout !== undefined) hasIdleTimeout = true;
+  if (config?.mcp?.servers?.serena !== undefined) {
+    if (config.mcp.servers.serena?.type !== 'local') {
+      throw Error(`Expected a local Serena MCP server in ${file}`);
+    }
+    matches.push({file, source, config});
+  }
+}
+if (matches.length !== 1) {
+  throw Error(matches.length ? 'Ambiguous Serena MCP entries in both global config files' :
+    'Serena MCP entry not found in global opencode.json or opencode.jsonc');
+}
+const {file, source, config} = matches[0];
+if (config.experimental !== undefined && (!config.experimental || typeof config.experimental !== 'object' || Array.isArray(config.experimental))) {
+  throw Error('Invalid experimental config object');
+}
+if (hasIdleTimeout) {
+  process.stdout.write('Preserving existing location_idle_timeout setting.\n');
+  process.exit(0);
+}
+const edits = jsonc.modify(source, ['experimental','location_idle_timeout'], '5 minutes', {
+  formattingOptions: { insertSpaces: true, tabSize: 2, eol: '\n' },
+});
+const updated = jsonc.applyEdits(source, edits);
+if (updated !== source) {
+  const temp = `${file}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(temp, updated, {flag: 'wx', mode: fs.statSync(file).mode & 0o777});
+    fs.renameSync(temp, file);
+  } finally {
+    if (fs.existsSync(temp)) fs.unlinkSync(temp);
+  }
+}
+process.stdout.write(`Serena idle lifecycle configured in ${file}.\n`);
+JS
+}
+
 echo '== Serena and ProjectMem (managed Python) =='
 work="$(mktemp -d "${TMPDIR:-/tmp}/agent-install.XXXXXX")"
 trap 'rm -f -- "$work/uv.sh" "$work/plannotator.sh" "$work/rtk.sh"; rmdir -- "$work"' EXIT
@@ -175,6 +228,7 @@ if [[ -z "$uv_bin" && -x "$HOME/.local/bin/uv" ]]; then uv_bin="$HOME/.local/bin
 "$uv_bin" tool run --isolated --refresh --python 3.13 --from serena-agent@latest serena --help
 "$uv_bin" tool run --isolated --refresh --python 3.13 --from projectmem@latest pjm --help
 opencode mcp add serena --global -- "$uv_bin" tool run --isolated --python 3.13 --from serena-agent@latest serena start-mcp-server --context agent --project-from-cwd --open-web-dashboard false
+configure_serena_lifecycle
 opencode mcp add projectmem --global -- "$uv_bin" tool run --isolated --python 3.13 --from projectmem@latest python -m projectmem.mcp_server
 
 echo '== Updating Plannotator and RTK =='

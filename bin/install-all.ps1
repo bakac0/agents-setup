@@ -88,10 +88,10 @@ finally { if(fs.existsSync(tmp)) fs.unlinkSync(tmp); }
 if ($hasOpenCode) {
     $version = (& opencode --version 2>&1 | Out-String).Trim()
     if ($LASTEXITCODE -ne 0 -or $version -notmatch '^(?:opencode\s+)?v?2\.(\d+)\.(\d+)\s*$') {
-        throw "Stable OpenCode >=2.0.4 and <3 required; found: $version"
+        throw "Stable OpenCode >=2.2.5 and <3 required; found: $version"
     }
     $minor = [int]$Matches[1]; $patch = [int]$Matches[2]
-    if ($minor -eq 0 -and $patch -lt 4) { throw 'Superpowers requires OpenCode >=2.0.4.' }
+    if ($minor -lt 2 -or ($minor -eq 2 -and $patch -lt 5)) { throw 'Serena idle lifecycle requires OpenCode >=2.2.5.' }
     $cliPath = Join-Path $configDir 'cli.json'
     $cliEditor | & $node - $cliPath $statusLinePath check
     if ($LASTEXITCODE -ne 0) { throw 'Invalid cli.json; no packages have been changed.' }
@@ -167,7 +167,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $ponytailDir 'config.json'))) {
     New-Item -ItemType Directory -Path $ponytailDir -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $ponytailDir 'config.json') -Value '{"defaultMode":"lite"}' -Encoding UTF8
 }
-Run-Checked $npm @('install','--prefix',$cliPackages,'--no-save','--package-lock=false','@rashidrazak/opencode-status-line@latest')
+Run-Checked $npm @('install','--prefix',$cliPackages,'--no-save','--package-lock=false','@rashidrazak/opencode-status-line@latest','jsonc-parser@3.3.1')
 $cliEditor | & $node - $cliPath $statusLinePath
 if ($LASTEXITCODE -ne 0) { throw 'Could not update cli.json.' }
 $reviewerPath = Join-Path $configDir 'agents\reviewer.md'
@@ -197,6 +197,57 @@ Check requirements, correctness, regressions, security and tests. Modify no file
 '@ | Set-Content -LiteralPath $reviewerPath -Encoding UTF8
 }
 
+$serenaEditor = @'
+const fs = require('node:fs');
+const path = require('node:path');
+const jsonc = require(process.argv[3]);
+const configDir = process.argv[2];
+const candidates = ['opencode.json', 'opencode.jsonc'];
+const matches = [];
+let hasIdleTimeout = false;
+for (const name of candidates) {
+  const file = path.join(configDir, name);
+  if (!fs.existsSync(file)) continue;
+  const source = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '');
+  const errors = [];
+  const config = jsonc.parse(source, errors, { allowTrailingComma: true });
+  if (errors.length) throw Error(`Cannot parse ${file}: ${JSON.stringify(errors)}`);
+  if (config?.experimental?.location_idle_timeout !== undefined) hasIdleTimeout = true;
+  if (config?.mcp?.servers?.serena !== undefined) {
+    if (config.mcp.servers.serena?.type !== 'local') {
+      throw Error(`Expected a local Serena MCP server in ${file}`);
+    }
+    matches.push({file, source, config});
+  }
+}
+if (matches.length !== 1) {
+  throw Error(matches.length ? 'Ambiguous Serena MCP entries in both global config files' :
+    'Serena MCP entry not found in global opencode.json or opencode.jsonc');
+}
+const {file, source, config} = matches[0];
+if (config.experimental !== undefined && (!config.experimental || typeof config.experimental !== 'object' || Array.isArray(config.experimental))) {
+  throw Error('Invalid experimental config object');
+}
+if (hasIdleTimeout) {
+  process.stdout.write('Preserving existing location_idle_timeout setting.\n');
+  process.exit(0);
+}
+const edits = jsonc.modify(source, ['experimental','location_idle_timeout'], '5 minutes', {
+  formattingOptions: { insertSpaces: true, tabSize: 2, eol: '\n' },
+});
+const updated = jsonc.applyEdits(source, edits);
+if (updated !== source) {
+  const temp = `${file}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(temp, updated, {flag: 'wx', mode: fs.statSync(file).mode & 0o777});
+    fs.renameSync(temp, file);
+  } finally {
+    if (fs.existsSync(temp)) fs.unlinkSync(temp);
+  }
+}
+process.stdout.write(`Serena idle lifecycle configured in ${file}.\n`);
+'@
+
 Write-Host '== Serena and ProjectMem (managed Python) =='
 $uv = if (Get-Command uv -ErrorAction SilentlyContinue) { Require-Command 'uv' } else { Join-Path $HOME '.local\bin\uv.exe' }
 if (-not (Get-Command uv -ErrorAction SilentlyContinue) -and -not (Test-Path -LiteralPath $uv)) {
@@ -206,6 +257,8 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue) -and -not (Test-Path -Li
 Run-Checked $uv @('tool','run','--isolated','--refresh','--python','3.13','--from','serena-agent@latest','serena','--help')
 Run-Checked $uv @('tool','run','--isolated','--refresh','--python','3.13','--from','projectmem@latest','pjm','--help')
 Ensure-Mcp 'serena' @('--',$uv,'tool','run','--isolated','--python','3.13','--from','serena-agent@latest','serena','start-mcp-server','--context','agent','--project-from-cwd','--open-web-dashboard','false') -Update
+$serenaEditor | & $node - $configDir (Join-Path $cliPackages 'node_modules\jsonc-parser')
+if ($LASTEXITCODE -ne 0) { throw 'Could not configure Serena idle lifecycle.' }
 Ensure-Mcp 'projectmem' @('--',$uv,'tool','run','--isolated','--python','3.13','--from','projectmem@latest','python','-m','projectmem.mcp_server') -Update
 
 Write-Host '== Updating Plannotator and RTK =='

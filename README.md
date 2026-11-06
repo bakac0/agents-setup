@@ -25,27 +25,28 @@ bash "$HOME/.agents/bin/install-all.sh"
 
 Если OpenCode не найден в PATH, скрипт пишет об этом, обновляет общие навыки и
 Playwright и пропускает всю OpenCode-секцию. Сам OpenCode не устанавливается.
-При наличии клиента требуется стабильная версия 2.0.4+ и <3.
+При наличии клиента требуется стабильная версия 2.2.5+ и <3: в 2.2.5 исправлен
+повторный запуск MCP после выгрузки простаивающего проекта.
 Для Linux OpenCode-секции нужен curl; в WSL используются Linux Node.js и OpenCode.
 
 ## Что устанавливается
 
-| Компонент | Установка и повторное обновление |
-| --- | --- |
-| 16 skills Matt Pocock, Chisel, Caveman | Менеджер skills; общий каталог ~/.agents/skills, интеграции Codex и доступного OpenCode |
-| Playwright CLI и skill | npm @playwright/cli@latest и глобальная установка skill |
-| Superpowers | OpenCode plugin из Git-репозитория obra/superpowers |
-| LiteLLM | opencode-plugin-litellm@latest |
-| Context7 | Глобальный удалённый MCP context7: https://mcp.context7.com/mcp; не подменяется CLI |
-| Ponytail и DCP | Плагины OpenCode; новый конфиг Ponytail начинает с lite |
-| Beads | CLI @beads/bd@latest и plugin opencode-beads с OpenCode 2.1.2+ |
-| Subagent Intervene | Плагин управления сабагентами с OpenCode 2.2.0+ |
-| Status Line | Свежий npm-пакет в каталоге OpenCode/cli-packages, ссылка на него в cli.json |
-| Reviewer | Агент reviewer с запретом инструмента edit и инструкцией read-only; создаётся, если отсутствует |
-| Serena | Изолированное окружение uv из serena-agent@latest и глобальный MCP serena |
-| ProjectMem | Изолированное окружение uv из projectmem@latest и глобальный MCP projectmem |
-| Plannotator | Свежий бинарник из официального installer и плагин OpenCode |
-| RTK | Windows: winget или Cargo; Linux/macOS: Homebrew, Cargo или официальный installer |
+| Компонент                              | Установка и повторное обновление                                                                |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 16 skills Matt Pocock, Chisel, Caveman | Менеджер skills; общий каталог ~/.agents/skills, интеграции Codex и доступного OpenCode         |
+| Playwright CLI и skill                 | npm @playwright/cli@latest и глобальная установка skill                                         |
+| Superpowers                            | OpenCode plugin из Git-репозитория obra/superpowers                                             |
+| LiteLLM                                | opencode-plugin-litellm@latest                                                                  |
+| Context7                               | Глобальный удалённый MCP context7: https://mcp.context7.com/mcp; не подменяется CLI             |
+| Ponytail и DCP                         | Плагины OpenCode; новый конфиг Ponytail начинает с lite                                         |
+| Beads                                  | CLI @beads/bd@latest и plugin opencode-beads с OpenCode 2.1.2+                                  |
+| Subagent Intervene                     | Плагин управления сабагентами с OpenCode 2.2.0+                                                 |
+| Status Line                            | Свежий npm-пакет в каталоге OpenCode/cli-packages, ссылка на него в cli.json                    |
+| Reviewer                               | Агент reviewer с запретом инструмента edit и инструкцией read-only; создаётся, если отсутствует |
+| Serena                                 | Изолированное окружение uv из serena-agent@latest и глобальный MCP serena                       |
+| ProjectMem                             | Изолированное окружение uv из projectmem@latest и глобальный MCP projectmem                     |
+| Plannotator                            | Свежий бинарник из официального installer и плагин OpenCode                                     |
+| RTK                                    | Windows: winget или Cargo; Linux/macOS: Homebrew, Cargo или официальный installer               |
 
 Python 3.13 для Serena и ProjectMem при необходимости загружается через uv.
 Системный Python не требуется. В Windows для RTK нужен winget или Cargo.
@@ -159,10 +160,10 @@ verification-before-completion
 
 ## Как генерировать и выполнять план
 
-| Артефакт | На какой вопрос отвечает |
-| --- | --- |
-| Spec | Что строим, для кого и какие ограничения соблюдаем? |
-| Tickets | Какие самостоятельные результаты делаем и в каком порядке? |
+| Артефакт        | На какой вопрос отвечает                                        |
+| --------------- | --------------------------------------------------------------- |
+| Spec            | Что строим, для кого и какие ограничения соблюдаем?             |
+| Tickets         | Какие самостоятельные результаты делаем и в каком порядке?      |
 | План реализации | Какие файлы и интерфейсы меняем, какими шагами и как проверяем? |
 
 После выбора сложного ticket:
@@ -195,13 +196,13 @@ verification-before-completion
 
 `docs/research/` — рекомендуемое место этого workflow; настройки проекта и явно заданный путь имеют приоритет. Отчёт должен разделять факты и предположения. Новое исследование можно хранить отдельным файлом со ссылкой на предыдущее. Если вывод противоречит принятому решению, сначала согласуй пересмотр, затем обновляй зависимые документы.
 
-| Где хранить | Что сохранять |
-| --- | --- |
-| `CONTEXT.md` | Словарь доменных понятий |
-| `docs/adr/` | Принятые значимые решения, альтернативы и причины |
-| `docs/research/` | Доказательства, источники, варианты и неизвестное |
-| Spec и tickets в tracker | Требуемое поведение, критерии и зависимости |
-| План реализации | Конкретные шаги, проверки и статус выполнения |
+| Где хранить              | Что сохранять                                     |
+| ------------------------ | ------------------------------------------------- |
+| `CONTEXT.md`             | Словарь доменных понятий                          |
+| `docs/adr/`              | Принятые значимые решения, альтернативы и причины |
+| `docs/research/`         | Доказательства, источники, варианты и неизвестное |
+| Spec и tickets в tracker | Требуемое поведение, критерии и зависимости       |
+| План реализации          | Конкретные шаги, проверки и статус выполнения     |
 
 Проверь, что нужные артефакты доступны следующей сессии: локальные `.scratch/` или отчёты могут исключаться ignore-правилами проекта.
 
