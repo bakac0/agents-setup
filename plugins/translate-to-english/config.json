@@ -1,0 +1,4 @@
+{
+  "model": "openai/gpt-6-luna",
+  "timeoutMs": 45000
+}
