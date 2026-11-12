@@ -39,10 +39,15 @@ for (const extension of ['ps1', 'sh']) test(`${extension}: standalone installati
   writeFileSync(join(installed,'index.ts'),moduleSource);
   return import(pathToFileURL(join(installed,'index.ts')).href).then(async ({default:plugin})=>{
     let hook;
-    await plugin.setup({options:{},session:{hook(_name,fn){hook=fn;}},experimental:{generate:{async text(input){
-      assert.deepEqual(input.model,{providerID:'custom',id:'translator'});
-      return {text:JSON.stringify({translation:'Fix the login bug.'})};
-    }}}});
+    await plugin.setup({options:{},session:{
+      hook(_name,fn){hook=fn;},
+      async create(input){assert.deepEqual(input.model,{providerID:'custom',id:'translator'});return {id:'temporary'};},
+      async generate(input){
+        assert.equal(input.sessionID,'temporary');
+        return {text:JSON.stringify({translation:'Fix the login bug.'})};
+      },
+      async remove(input){assert.equal(input.sessionID,'temporary');},
+    }});
     const event={prompt:{text:'Исправь вход'}};
     await hook(event);
     assert.equal(event.prompt.text,'Fix the login bug.');

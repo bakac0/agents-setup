@@ -1,2 +1,6 @@
 skills
 .serena
+.playwright-cli/
+playwright-report/
+test-results/
+.projectmem/scratch/

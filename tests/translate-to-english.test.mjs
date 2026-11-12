@@ -17,10 +17,18 @@ registration.deregister();
 
 async function setup(generate, options = {}) {
   let hook;
+  let model;
   await definition.setup({
     options,
-    session: {hook(name, callback) { assert.equal(name, 'prompt'); hook = callback; }},
-    experimental: {generate: {text: generate}},
+    session: {
+      hook(name, callback) { assert.equal(name, 'prompt'); hook = callback; },
+      async create(input) {model=input.model; return {id:'translator-session'};},
+      async generate(input, request) {
+        assert.equal(input.sessionID,'translator-session');
+        return generate({...input,model},request);
+      },
+      async remove(input) {assert.equal(input.sessionID,'translator-session');},
+    },
   });
   return hook;
 }
@@ -35,6 +43,30 @@ test('translates successive user prompts automatically using the configured mode
   }
   assert.equal(inputs.length, 3);
   assert.deepEqual(inputs[0].model, {providerID:'test', id:'translator'});
+});
+
+test('uses an isolated configured session and removes it on success and failure', async () => {
+  for (const succeeds of [true,false]) {
+    let hook, removed=false;
+    await definition.setup({options:{model:'litellm/deepseek-flash'},session:{
+      hook(_name,callback){hook=callback;},
+      async create(input){
+        assert.equal(input.parentID,'working-session');
+        assert.deepEqual(input.model,{providerID:'litellm',id:'deepseek-flash'});
+        assert.deepEqual(input.permissions,[{action:'*',resource:'*',effect:'deny'}]);
+        return {id:'temporary'};
+      },
+      async generate(input){
+        assert.equal(input.sessionID,'temporary');
+        if(!succeeds) throw Error('network unavailable');
+        return {text:'{"translation":"Fix the bug."}'};
+      },
+      async remove(input){assert.equal(input.sessionID,'temporary');removed=true;},
+    }});
+    const pending=hook({sessionID:'working-session',prompt:{text:'Исправь ошибку.'}});
+    if(succeeds) await pending; else await assert.rejects(pending,/Translation/);
+    assert.equal(removed,true);
+  }
 });
 
 test('accepts Cyrillic inside preserved paths and code', async () => {

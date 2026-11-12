@@ -190,10 +190,19 @@ export default Plugin.define({
       if (!original?.trim()) return
       const controller = new AbortController()
       let timer: ReturnType<typeof setTimeout> | undefined
+      let translationSessionID: string | undefined
       try {
+        // Use session-scoped provider authentication, including ChatGPT OAuth hooks.
+        const session = await ctx.session.create({
+          parentID: event.sessionID,
+          title: "Prompt translation (temporary)",
+          model,
+          permissions: [{ action: "*", resource: "*", effect: "deny" }],
+        })
+        translationSessionID = session.id
         const { text } = await Promise.race([
-          ctx.experimental.generate.text({
-            model,
+          ctx.session.generate({
+            sessionID: translationSessionID,
             prompt:
               "Translate this user message to English. Return ONLY a JSON object with one string field: translation. " +
               "If already English, return it unchanged. Keep meaning, formatting, code blocks, inline code, " +
@@ -219,6 +228,11 @@ export default Plugin.define({
         throw new Error("Translation failed; the original prompt was not sent. Check translate-to-english/config.json and provider access.", { cause })
       } finally {
         clearTimeout(timer)
+        if (translationSessionID) {
+          await ctx.session.remove({ sessionID: translationSessionID }).catch(() => {
+            console.warn("translate-to-english: could not remove temporary translation session")
+          })
+        }
       }
     })
   },
