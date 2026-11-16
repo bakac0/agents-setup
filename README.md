@@ -1,279 +1,160 @@
-# Engineering Skills
+# Engineering agent stack — revision 2026-11-16
 
-Набор навыков и инструментов разработки. Для установки нужны только один скрипт
-своей платформы, Git и Node.js 18+ с npm/npx. Скрипт можно запускать из любого каталога.
+A reproducible OpenCode v2 configuration for the existing GPT agent profile. OpenChamber remains the UI; OpenCode is the execution engine. Codex can share the engineering rules and explicitly installed skills, but the OpenCode agent YAML and translator are not Codex plugins.
 
-## Установка и обновление одной командой
+## Install or update
 
-Windows (PowerShell):
+Keep the complete checkout. The install scripts now share one canonical source for the owned policy, agents and translator; they are no longer standalone single-file installers. Use Node.js 22+ (24.15+ if testing Context Mode), npm, Git and stable OpenCode >=2.2.5 and <3. Linux/WSL requires Linux Node/npm and curl. OpenCode itself is not installed by these scripts. Back up the existing OpenCode configuration and stop active sessions before migration.
 
-```powershell
-& "$HOME\.agents\bin\install-all.ps1"
-```
-
-Linux / macOS / WSL:
+macOS/Linux/WSL:
 
 ```bash
-bash "$HOME/.agents/bin/install-all.sh"
+bash bin/install-all.sh
 ```
 
-Повторный запуск этой же команды обновляет комплект. Никаких флагов выбора
-компонентов, отдельных extras, вспомогательных скриптов или шаблонов не требуется.
-Если репозиторий находится в другом каталоге, укажи фактический путь к скрипту.
-При ограниченной Windows execution policy можно запустить через
-`powershell -NoProfile -ExecutionPolicy Bypass -File .\bin\install-all.ps1`.
+Windows PowerShell (from the checkout):
 
-Если OpenCode не найден в PATH, скрипт пишет об этом, обновляет общие навыки и
-Playwright и пропускает всю OpenCode-секцию. Сам OpenCode не устанавливается.
-При наличии клиента требуется стабильная версия 2.2.5+ и <3: в 2.2.5 исправлен
-повторный запуск MCP после выгрузки простаивающего проекта.
-Для Linux OpenCode-секции нужен curl; в WSL используются Linux Node.js и OpenCode.
+```powershell
+& .\bin\install-all.ps1
+```
 
-## Что устанавливается
+The scripts install/update Playwright CLI, Superpowers, LiteLLM, Plannotator, Subagent Intervene, Status Line, Context7, Serena, ProjectMem, and RTK; deploy the global policy, all 18 GPT agents and the new local translator; preserve the translator's existing settings; and attempt to remove the legacy Ponytail, DCP and Beads package registrations if present. Beads databases/CLI and old skill folders are not deleted. Native RTK integration is initialized when the binary and standard config directory are available. Existing Serena idle timeout is preserved; otherwise the original 5-minute default is applied. Existing provider credentials are not replaced. Package updates use the existing upstream update mechanism; this is not a fully pinned dependency lock.
 
-| Компонент                              | Установка и повторное обновление                                                                |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 16 skills Matt Pocock, Chisel, Caveman | Менеджер skills; общий каталог ~/.agents/skills, интеграции Codex и доступного OpenCode         |
-| Playwright CLI и skill                 | npm @playwright/cli@latest и глобальная установка skill                                         |
-| Superpowers                            | OpenCode plugin из Git-репозитория obra/superpowers                                             |
-| LiteLLM                                | opencode-plugin-litellm@latest                                                                  |
-| Translate to English                   | Локальный плагин: автоматический перевод каждого текстового сообщения перед передачей агенту |
-| Context7                               | Глобальный удалённый MCP context7: https://mcp.context7.com/mcp; не подменяется CLI             |
-| Ponytail и DCP                         | Плагины OpenCode; новый конфиг Ponytail начинает с lite                                         |
-| Beads                                  | CLI @beads/bd@latest и plugin opencode-beads с OpenCode 2.1.2+                                  |
-| Subagent Intervene                     | Плагин управления сабагентами с OpenCode 2.2.0+                                                 |
-| Status Line                            | Свежий npm-пакет в каталоге OpenCode/cli-packages, ссылка на него в cli.json                    |
-| Reviewer                               | Агент reviewer с запретом инструмента edit и инструкцией read-only; создаётся, если отсутствует |
-| Serena                                 | Изолированное окружение uv из serena-agent@latest и глобальный MCP serena                       |
-| ProjectMem                             | Изолированное окружение uv из projectmem@latest и глобальный MCP projectmem                     |
-| Plannotator                            | Свежий бинарник из официального installer и плагин OpenCode                                     |
-| RTK                                    | Windows: winget или Cargo; Linux/macOS: Homebrew, Cargo или официальный installer               |
+If OpenCode is absent, only Playwright CLI is updated. To deploy only the owned configuration without reinstalling tools or touching providers:
 
-Python 3.13 для Serena и ProjectMem при необходимости загружается через uv.
-Системный Python не требуется. В Windows для RTK нужен winget или Cargo.
-Плагины OpenCode обновляются менеджером plugins, включая уже настроенные плагины.
-Удалённый Context7 обслуживается сервером и не требует локального обновления пакета.
-Коды ошибок установки не маскируются итоговым сообщением об успехе.
+```bash
+node bin/deploy-config.mjs
+```
 
-### Автоматический перевод промптов
+Use `--config-dir /actual/opencode/config` when needed. The deploy helper backs up changed existing files under `stack-backups/<timestamp>/` inside that config directory. It updates a managed block in global `AGENTS.md`, replacing the exact original policy from the supplied archive or preserving unrelated global text. Review any preserved older rules for contradictions. The 18 named managed agent files are intentionally replaced; unrelated agents are untouched. The local plugin directory is auto-discovered by OpenCode. Do not add a second copy of the same plugin.
 
-Оба установщика устанавливают `translate-to-english` глобально в
-`~/.config/opencode/plugins/translate-to-english/` (либо в `OPENCODE_CONFIG_DIR`).
-Никакой команды активации или префикса в сообщении не требуется. Перевод выполняется
-для каждого непустого текстового сообщения, включая сообщения с файлами и
-@-упоминаниями. Код, пути и технические обозначения переводчику предписано сохранять.
-Ответы основной модели этот плагин не переводит.
+## Skills are user-managed
 
-Модель и таймаут находятся в `config.json` рядом с `index.ts`:
+The scripts do **not** run `skills add`, `skills update`, or Playwright's skill installer. Do not edit the bundled Matt Pocock snapshots or `.skill-lock.json` to implement project-specific rules. Upstream skill updates remain separate and user-directed. Superpowers exposes its own bundled skills through its runtime plugin; this is not an independent `skills` manager installation.
+
+Install/update the two owned skills explicitly, when desired:
+
+```bash
+node bin/deploy-config.mjs --skills
+```
+
+The default destination is `~/.agents/skills`; `--skills-dir <path>` selects another directory. Ensure each client can discover those skills, using its supported shared-skill path or existing integration. `myskills/` is the canonical owned source; the `skills/` copy in the archive is a snapshot. Do not independently edit the mirror. The helper does not modify unrelated skills. For Codex, merge the English global rules from `AGENTS.md` into your existing `~/.codex/AGENTS.md` explicitly; do not overwrite unrelated instructions.
+
+If an upstream skill is missing, the agent reports that and uses a suitable installed equivalent; it must not install it itself. Caveman is optional and explicit; Chisel is no longer part of the required lifecycle. Playwright's CLI skill can be installed manually if wanted:
+
+```bash
+playwright-cli install --skills=agents --global
+```
+
+## Verify migration on the actual server
+
+Restart the server used by OpenChamber after stopping active jobs. Verify its config directory and project location, not just a local CLI connected to a different server. Run:
+
+```bash
+opencode --version
+opencode plugin list
+opencode mcp list
+opencode models
+rtk init --show
+rtk gain
+```
+
+For plugin state in the relevant directory, the V2 API CLI can be used (replace the path and use `--server` for the same remote server if applicable):
+
+```bash
+opencode api v2.plugin.awaitActivation --param 'location[directory]=/absolute/path/to/project'
+opencode api v2.plugin.list --param 'location[directory]=/absolute/path/to/project'
+```
+
+Confirm `translate-to-english` is active, not merely present on disk. Confirm only one registration for it, LiteLLM, and Serena. If package removal missed a versioned, local or project-scoped registration, inspect the corresponding `opencode.json(c)` and remove that exact target; do not delete project data. The old Beads CLI can be uninstalled manually only after its workspaces have been inventoried and any important tasks migrated.
+
+## Translator v2
+
+The local `translate-to-english` plugin uses the native prompt-admission hook. It sends non-ASCII prose to the configured translation model through `ctx.generate.text` (no tools/history), then uses same-model session-scoped generation as a fallback when the stateless request fails. It does not create a new paid API route or translate replies. The common English/code-only path skips inference. Code blocks, inline code, URLs and @mentions are masked and restored exactly; unquoted paths and other literals are preserved by instruction, not a formal parser. Existing prompt attachment objects remain intact; stale mention offsets are removed only when text changes. Separate display text is synchronized when present. The hook logs activation and successful translation without logging user text. Failures stop admission rather than silently send Russian; an English prompt bypasses the default detector.
+
+Default config, at `<opencode-config>/plugins/translate-to-english/config.json`:
 
 ```json
 {
   "model": "openai/gpt-6-luna",
-  "timeoutMs": 45000
+  "timeoutMs": 45000,
+  "translateAll": false
 }
 ```
 
-Выбранная модель проверена коротким переводом через OpenCode 2.2.5 11 ноября
-2026 года. Для неё нужна действующая авторизация OpenAI в OpenCode. Доступная
-в списке `opencode/glm-5.3-flash-free` при проверке вернула исчерпанный бесплатный
-лимит, поэтому она не выбрана. На другом компьютере укажи доступную ему модель
-в формате `provider/model`.
+Existing settings are preserved. Set `translateAll: true` to translate ASCII-only non-English languages too; this also invokes the model for English messages. The default heuristic is tuned for Russian and non-ASCII prose, not a general language detector. Keep the translation model connected with native OpenCode credentials. A fallback may make a second model request on the same account; the timeout is shared.
 
-Подключение зависит от компьютера: например, `litellm/deepseek-flash` подходит
-для настроенного LiteLLM на Mac, а `openai/gpt-6-luna` — для подключения ChatGPT
-на Windows. Плагин создаёт отдельную временную дочернюю сессию с указанной моделью
-и использует `session.generate`, чтобы работали сессионные hooks авторизации.
-В рабочую историю добавляется только переведённое сообщение. Инструменты временной
-сессии запрещены, после перевода или ошибки сессия удаляется.
+Live smoke test in a **new** OpenChamber session:
 
-При повторной установке код плагина обновляется, а существующий `config.json`
-сохраняется. После ручного изменения конфига перезапусти OpenCode, чтобы плагин
-прочитал новые значения. Если перевод недоступен, пуст или превышает таймаут,
-отправка прерывается с ошибкой: оригинал не передаётся агенту незаметно.
-Переведённый текст становится сохранённым пользовательским сообщением в OpenCode.
-Бинарные вложения и содержимое файлов не переводятся. Служебные сообщения,
-tool output и команды, обходящие `session.prompt` (например, отдельные цели
-`/goal`), не перехватываются этим prompt-хуком.
+1. Select the GPT Orchestrator and send `Проверь README и ничего не меняй.` Confirm the persisted/model-facing input is English and the server logs `translated prompt`.
+2. Send `Read README. Do not edit.` Confirm no extra translation request with the default config.
+3. Send a Russian prompt containing a code block, an @mention and an attachment; verify the literal content and attachment still resolve.
+4. Ask for a small code change. Confirm the parent sends an English brief to `builder-simple`, receives English evidence, and can report to the user in Russian.
 
-Проверки: `node --test tests/*.test.mjs` (Node.js 25+ для тестового загрузчика
-TypeScript; тест установщиков на Windows использует PowerShell 5.1 и Git Bash).
-Для самого OpenCode по-прежнему достаточно требований установщика выше.
+If no activation log or plugin entry appears, diagnose server/config discovery first; changing models will not fix an unloaded hook. If active but failing, inspect the host error/cause, provider authentication and quota. Do not print credentials or entire private prompts. If needed, switch the `model` field to a model that is actually connected and listed by `opencode models`; do not assume a new provider is subscription-covered.
 
-11 ноября 2026 года проверены 10 тестов плагина и установочных блоков; глобальный
-плагин активирован в OpenCode 2.2.5. Сквозной `session.prompt` с русским сообщением
-вернул сохранённый английский текст без команды активации, основная модель ответила
-`READY`. Нативный запуск установщика на macOS/Linux не выполнялся; Bash-блок
-проверен через Git Bash на Windows. Проверка относится к обычным сообщениям чата.
+## Workflow authority and agents
 
-Последующая диагностика HTTP 500: в этой Windows-конфигурации прямой
-`experimental.generate.text` для нескольких моделей OpenAI возвращал
-`ECONNRESET`, а `session.generate` успешно выполнял тот же перевод. После перехода
-на временную сессию прошли 11 тестов и повторный сквозной `session.prompt`:
-русский текст принят как английский без HTTP 500. Существующий конфиг модели
-не изменялся. Временные сбои самого провайдера по-прежнему могут прервать перевод.
+`AGENTS.md` is the global engineering policy. Matt Pocock owns requirements/domain design and final code review methodology; Superpowers owns implementation discipline. The Planner produces a single plan, the Orchestrator coordinates, and Builders implement. Existing project rules and explicit approved scope remain relevant; review conflicts before work.
 
-MCP-команды Serena и ProjectMem обновляются на изолированный запуск uv; остальные
-MCP, reviewer и Ponytail-конфиг сохраняются. Редактор cli.json
-сохраняет посторонние JSON-значения; комментарии JSONC в этом файле не поддерживает.
-Конфиги OpenCode по умолчанию находятся в ~/.config/opencode; другой каталог можно
-задать через OPENCODE_CONFIG_DIR. Менеджер skills может обновлять управляемые им
-навыки; локальные изменения заранее сохрани. Нестандартный AGENTS_SKILLS_DIR не поддерживается.
+| Role | GPT profile | Purpose |
+|---|---|---|
+| Orchestrator | Luna medium | Mandatory delegation for substantive work |
+| Planner | Terra medium | Single ordinary complex-ticket plan |
+| Planner Hard | Sol high | High-risk or cross-system plans and escalation |
+| Builder Simple | Terra low | Small isolated changes |
+| Builder Medium | Terra medium | Ordinary multi-file features |
+| Builder Hard | Sol high | Complex implementation/debugging |
+| Builder Expert | Astra high | Exceptional evidenced blockers |
+| Reviewer Fast | Luna medium | Optional low-risk check |
+| Reviewer | Sol high | Substantive review, particularly Terra-authored work |
+| Reviewer Independent | Astra medium | High-risk Sol-authored work |
+| Analyst / Research / Repo Scout / Tester | Luna variants | Evidence, discovery and tests |
+| Vision / Vision Second Opinion | Terra medium / Sol high | Visual evidence |
+| Workflow / Git Manager | Terra low / Luna medium | Authorized workflow and Git operations |
 
-После установки скрипт выводит список плагинов и MCP. Context7 может запросить
-вход в браузере при первом обращении (`opencode mcp auth context7`). LiteLLM требует
-настройки твоего провайдера. Браузер Playwright при необходимости устанавливается
-командой `playwright-cli install-browser`. RTK устанавливается без OpenCode hook.
-
-Проектная память и Beads в Git-проектах автоматически не инициализируются.
-Для памяти внутри нужного репозитория запусти команду pjm, напечатанную установщиком,
-с `init --no-global`; затем проверь изменения инструкций и Git hooks перед коммитом.
-Скрипты не выполняют commit/push и не устанавливают экспериментальные наборы ECC/OMO.
-Установка требует интернета, не транзакционная; после устранения ошибки повтори ту же команду.
-
-Проверено 4 ноября 2026 года: полный запуск на Windows с OpenCode 2.2.5 завершился
-успешно; семь серверных плагинов актуальны, Context7/ProjectMem/Serena подключены.
-Beads 1.3.4, Plannotator 0.28.48, RTK 1.1.0 и Status Line 1.2.0 установлены.
-Оба самостоятельных скрипта также проверены в пустых каталогах: пропуск OpenCode,
-повторное обновление и сохранение настроек. Нативная установка на Linux не выполнялась.
-
-Источники: [OpenCode plugins](https://opencode.ai/v2/docs/plugins),
-[OpenCode MCP](https://opencode.ai/v2/docs/mcp-servers),
-[Context7 для OpenCode](https://context7.com/docs/clients/opencode),
-[Superpowers](https://github.com/obra/superpowers/blob/main/.opencode/INSTALL.md),
-[Plannotator](https://github.com/backnotprop/plannotator/tree/main/apps/opencode-plugin).
-
-## Подготовка каждого проекта
-
-Открой рабочий репозиторий и попроси агента:
-
-> Используй setup-matt-pocock-skills для этого проекта. Хочу хранить spec и tickets локально в Markdown. Сохрани существующие инструкции и покажи предлагаемую настройку.
-
-Можно выбрать GitHub/GitLab или другой tracker вместо локальных файлов. Навык записывает настройку в `docs/agents/`, добавляет ссылки в существующий `CLAUDE.md` или `AGENTS.md` и определяет расположение доменных документов. Настройка triage labels нужна, только если используется соответствующий навык.
-
-Чтобы общий workflow действовал в проекте, включи правила этого `AGENTS.md` в проектные инструкции или добавь явную ссылку, доступную агенту. Не рассчитывай, что файл в репозитории набора автоматически распространяется на любой проект. Команды тестов, архитектурные ограничения и особенности проекта укажи в его собственных инструкциях.
-
-Навыки можно вызывать обычной фразой «Используй to-spec…» или через меню навыков клиента. В примерах ниже используются обычные запросы. Имена `superpowers:…` относятся к плагину; `code-review` — к набору Matt Pocock.
-
-## Полный маршрут
+Models/effort are a starting hypothesis based on the supplied profile, not a benchmark. Check actual model IDs/variants and quota availability. Reviewer edit permission is denied, but shell remains available for tests; this is not a hard read-only sandbox. The Orchestrator's permissions remain broad for coordination; delegation is a behavioral rule rather than a tool-level enforcement mechanism.
 
 ```text
-IDEA
-  │
-  ▼
-grill-with-docs
-  ├── grilling
-  ├── domain-modeling
-  ├── research / Context7
-  ├── codebase-design
-  └── prototype при необходимости
-  │
-  ▼
-DESIGN APPROVED → to-spec → to-tickets
-
-════════ граница проектирования / реализации ════════
-
-ticket → using-git-worktrees
-  ├── простой → TDD
-  └── сложный → writing-plans
-                → executing-plans или subagent-driven-development
-                → TDD
-  │
-  ▼
-verification-before-completion
-  → chisel, если есть что упрощать
-  → verification после изменений
-  → Matt code-review
-  → исправления, повторные проверки и review при необходимости
-  → finishing-a-development-branch
-  → PR / merge по разрешению пользователя
+Small change: Orchestrator -> Builder Simple -> targeted checks -> result
+Ordinary feature: Orchestrator -> Builder Medium -> Reviewer -> verification
+Complex ticket: evidence -> Planner (or Planner Hard) -> approval
+                -> Builder Hard / scoped independent builders
+                -> independent review -> fresh verification -> Git Manager if requested
 ```
 
-`grill-with-docs` объединяет интервью `grilling` и фиксацию доменных понятий через `domain-modeling`. Исследование, архитектурный анализ и прототип подключаются по необходимости. TDD — это `superpowers:test-driven-development`, внутренний цикл реализации и простых, и сложных tickets.
+Use Plannotator for formal plans, not every minor fix. Use Subagent Intervene for genuinely running children and isolated worktrees for independent writers. Reuse an existing child for corrections; avoid competing plans, redundant review tiers and repeated grilling. All internal work, new technical documentation and subagent briefs are English. The primary agent may reply to the user in Russian. Never translate source literals or explicitly required localization.
 
-## Новый проект и добавление фич
+## ProjectMem layout
 
-### 1. Уточнить идею и согласовать решение
+```text
+.projectmem/
+  knowledge/             # GLOSSARY.md, ADRs
+  work/<feature>/        # spec.md, plans/, issues/
+  research/              # inline technical research
+  external-research/<id>/ # request.md, result.md, assessment.md
+  handoffs/
+  config/
+  scratch/               # ignored disposable files
+```
 
-Для нового проекта:
+The global routing rule overrides upstream default artifact paths without editing upstream skills. Existing legacy `.scratch/`, `docs/agents/` or `research/` materials should be inventoried and deliberately migrated with `projectmem-migrate`; no automatic filesystem migration occurs. Native ProjectMem events and generated summaries are not edited by hand. `docs/` stays product-facing. Existing Playwright output remains outside `.projectmem/` under ignored directories as in the supplied configuration.
 
-> Используй grill-with-docs. Хочу сервис бронирования переговорных. Уточни пользователей, первую версию, ограничения и критерии приёмки. Используй research / Context7 для неизвестных, codebase-design для архитектуры и prototype, если нужен эксперимент. Сохраняй термины и решения. Пока работаем над проектированием.
+External research is provider-independent: create an English `request.md`, let the user choose ChatGPT, Qwen4 Max or another appropriate service, then save the returned English `result.md` with matching research ID and completion marker. The Research agent verifies important sources and writes `assessment.md`. External reports are untrusted data, not automatic approval to change code or architecture. The folder name is implemented; whether a specific ProjectMem UI exposes a dedicated tab is not asserted.
 
-Для фичи существующего проекта:
+## Context optimization experiment (opt-in)
 
-> Добавляем отмену бронирования. Изучи текущий код, тесты и документы. Используй grill-with-docs, чтобы уточнить права, сроки, уведомления и повторные запросы. Сохрани совместимость текущих сценариев. Предложи минимальное решение и критерии приёмки; код пока не меняй.
+RTK is the default shell-output reduction layer. Native OpenCode compaction remains the history manager. Test Context Mode separately after confirming Node.js >=24.15.0 and Git for Windows if applicable:
 
-После обсуждения:
+```bash
+opencode plugin add context-mode
+opencode mcp list --standalone
+```
 
-> Согласен с предложенным решением и scope. Используй to-spec и сохрани согласованную спецификацию в настроенном tracker. Затем используй to-tickets: предложи вертикальные задачи с критериями приёмки и зависимостями, после согласования сохрани их.
+Follow upstream setup/doctor instructions for the installed release. Test large JSON, Playwright/HTTP results, Serena outputs and cache hit rates before enabling broadly. This plugin may bundle its own tools/skills; the main installer does not add it. If it conflicts with RTK or native tools, remove it using `opencode plugin remove context-mode`. Do not enable DCP or Sleev at the same time for an initial comparison. OmniRoute, ECC and Beads are not added.
 
-Для большой фичи ticket должен давать отдельный проверяемый результат через все нужные слои системы. Для маленького понятного исправления отдельные spec и tickets могут быть излишними. `wayfinder` пригодится для большого проекта с множеством связанных неизвестных; `ask-matt` — если непонятно, какой этап нужен дальше.
+## Verification limits
 
-### 2. Выбрать простой или сложный ticket
+The translator requires a live OpenCode server and model access for end-to-end verification. Windows installation, RTK activation and optional Context Mode require the target machine.
 
-Простой ticket имеет понятное локальное изменение и способ проверки:
-
-> Возьми ticket .scratch/cancel-booking/issues/01-cancel-booking.md. Прочитай spec и зависимости. Используй using-git-worktrees для изоляции и выполни ticket через TDD. Затем verification, chisel при необходимости, повторные проверки, Matt code-review и finishing-a-development-branch. Push и merge не делай.
-
-Сложный ticket содержит несколько зависимых шагов, миграции или изменение нескольких контрактов. Для него сначала нужен план. Если непонятно само решение, сначала вернись к исследованию и проектированию.
-
-## Как генерировать и выполнять план
-
-| Артефакт        | На какой вопрос отвечает                                        |
-| --------------- | --------------------------------------------------------------- |
-| Spec            | Что строим, для кого и какие ограничения соблюдаем?             |
-| Tickets         | Какие самостоятельные результаты делаем и в каком порядке?      |
-| План реализации | Какие файлы и интерфейсы меняем, какими шагами и как проверяем? |
-
-После выбора сложного ticket:
-
-> Для .scratch/cancel-booking/issues/02-notifications.md проверь завершение блокеров и подготовь worktree через using-git-worktrees. Используй superpowers:writing-plans. Прочитай родительскую spec, исследования, ADR и текущий код. Составь план с файлами, интерфейсами, небольшими шагами и конкретными проверками всех критериев приёмки. Пока только план, без реализации.
-
-По умолчанию `writing-plans` сохраняет `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`. Можно явно задать другой путь. При локальном tracker spec находится в `.scratch/<feature>/spec.md`, tickets — в отдельных `.scratch/<feature>/issues/<NN>-<slug>.md`. При внешнем tracker передавай ссылки на issues.
-
-Для исполнения:
-
-> Выполни план docs/superpowers/plans/<имя-файла>.md через superpowers:executing-plans в текущей сессии. Следуй spec, используй TDD и отмечай фактически завершённые шаги. После реализации пройди verification, chisel при необходимости, повторную verification, Matt code-review и завершение ветки. Не делай push или merge.
-
-Для работы с подагентами замени режим на `superpowers:subagent-driven-development`. Выбранный режим зависит от возможностей клиента; независимые задачи можно делегировать, зависимые требуют завершения блокеров. Промежуточные проверки при исполнении не отменяют итоговый review.
-
-## Исследования, которые дополняют проект
-
-Задай конкретный вопрос, укажи связанные документы и место отчёта. Исследование может идти во время проектирования или закрывать новый вопрос по текущей фиче.
-
-Первое исследование:
-
-> Используй research для защиты от двойного бронирования. Изучи код и тесты, через Context7 проверь гарантии используемой БД. Сохрани docs/research/2026-09-13-booking-concurrency.md: вопрос, факты, источники, версии, варианты, рекомендация и неизвестное. Укажи влияние на spec и tickets бронирования. Production-код не меняй.
-
-Продолжение:
-
-> Продолжи исследование docs/research/2026-09-13-booking-concurrency.md: проверь повторные запросы после таймаута. Добавь новые доказательства, отметь пересмотренные выводы и даты. Не повторяй подтверждённое без причины. Предложи изменения в связанных spec, tickets и плане.
-
-Перенос принятых выводов в рабочие документы:
-
-> Принимаю рекомендацию исследования. Обнови связанную spec, критерии и зависимости tickets, невыполненные шаги плана. Добавь ссылки на доказательства. Значимое трудно обратимое решение сохрани в ADR; в CONTEXT.md добавь только согласованные доменные термины. Покажи изменения, код пока не трогай.
-
-`docs/research/` — рекомендуемое место этого workflow; настройки проекта и явно заданный путь имеют приоритет. Отчёт должен разделять факты и предположения. Новое исследование можно хранить отдельным файлом со ссылкой на предыдущее. Если вывод противоречит принятому решению, сначала согласуй пересмотр, затем обновляй зависимые документы.
-
-| Где хранить              | Что сохранять                                     |
-| ------------------------ | ------------------------------------------------- |
-| `CONTEXT.md`             | Словарь доменных понятий                          |
-| `docs/adr/`              | Принятые значимые решения, альтернативы и причины |
-| `docs/research/`         | Доказательства, источники, варианты и неизвестное |
-| Spec и tickets в tracker | Требуемое поведение, критерии и зависимости       |
-| План реализации          | Конкретные шаги, проверки и статус выполнения     |
-
-Проверь, что нужные артефакты доступны следующей сессии: локальные `.scratch/` или отчёты могут исключаться ignore-правилами проекта.
-
-## Review, завершение и продолжение
-
-После реализации агент проверяет результат, при необходимости упрощает его через `chisel` и заново выполняет затронутые проверки. Затем Matt `code-review` отдельно проверяет стандарты репозитория и исходную spec. Передай базовую точку Git и spec; убедись, что весь итоговый diff включён в review. После исправлений нужны свежие проверки и review изменённых участков.
-
-`finishing-a-development-branch` завершает работу над проверенной веткой. Коммиты используют Conventional Commits. Push и merge требуют явного разрешения; запрос «реализуй ticket» сам по себе не означает «слей его в основную ветку».
-
-Для следующей сессии:
-
-> Продолжи фичу cancel-booking. Прочитай проектные инструкции, spec, tickets, связанные исследования и план. Сверь статусы с кодом и Git. Возьми следующий ticket с завершёнными блокерами и выполни его по workflow.
-
-Для передачи можно вызвать `handoff`: он сохраняет краткий документ в системном временном каталоге со ссылками на артефакты и следующим шагом. Долговременные результаты должны оставаться в проекте. До завершения spec и tickets удобно сохранять один связный контекст; отдельный ticket можно реализовывать в свежей сессии.
-
-Для багов используй `superpowers:systematic-debugging`, затем regression test и TDD. Для браузерных сценариев — Playwright CLI. `caveman` меняет краткость общения, не инженерный процесс. Дополнительные `wait-what`, `wizard` и `writing-for-agents` входят в список установки; их назначение и условия применения проверяй по соответствующим `SKILL.md`, не добавляя их как обязательные этапы lifecycle.
+References: [OpenCode plugin API](https://opencode.ai/v2/docs/build/plugins/), [global instructions](https://opencode.ai/docs/instructions/), [plugin loading and removal](https://opencode.ai/docs/plugins/), [RTK supported agents](https://github.com/rtk-ai/rtk/blob/develop/docs/guide/getting-started/supported-agents.md), [Context Mode requirements](https://github.com/mksglu/context-mode/blob/main/docs/install/README.md).

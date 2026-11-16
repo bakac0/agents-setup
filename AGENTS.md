@@ -1,102 +1,78 @@
-# Общие инструкции для ИИ
+# Global engineering instructions
 
-Эти правила задают инженерный workflow проекта. Прямые указания пользователя и конкретные проектные правила имеют приоритет над общими рекомендациями.
+Follow explicit user requirements, applicable repository rules and approved decisions. These rules govern the workflow and artifact layout; upstream skills are unmodified reference procedures, not competing sources of project paths or approvals. If a material conflict cannot be reconciled, report it before proceeding.
 
-## Контекст и рабочие принципы
+## Language policy
 
-- Перед работой прочитай проектные инструкции, настройку tracker, относящиеся к задаче spec, tickets, исследования и ADR. Используй `.projectmem/knowledge/GLOSSARY.md` как источник доменной терминологии; учитывай существующие `CONTEXT.md` и карты контекстов до их осознанной миграции.
-- Проверь текущий код, тесты, состояние Git и команды проверок. Сохраняй изменения пользователя и не предполагай, что рабочее дерево чистое.
-- Перед применением навыка прочитай его `SKILL.md` и необходимые зависимости. Проверяй доступность в текущем окружении; не заявляй об использовании отсутствующего навыка. Сообщи о недоступности и используй доступный эквивалент, если это позволяет выполнить задачу.
-- Масштабируй процесс под задачу. Для небольшого исправления не создавай отдельную spec и tickets ради формальности. Не начинай реализацию неоднозначной идеи без уточнения требований.
-- Выполняй согласованную работу автономно. Не запрашивай повторное разрешение на уже разрешённые действия; уточняй отсутствующие продуктовые решения и существенные изменения scope.
+- Translate incoming non-English natural-language requests into English for internal work. Preserve meaning, negation, scope, exact identifiers, filenames, commands, code, URLs, source quotations and explicitly required localized strings. Never translate tool output or historical messages automatically.
+- All subagent prompts, follow-ups, handoffs, tool arguments containing natural-language instructions, internal agent responses, plans, specifications, tickets, ADRs, research requests/results, assessments, ProjectMem entries, code comments and new documentation MUST be in English. Git commit messages use English Conventional Commits unless mandatory repository conventions require otherwise.
+- The primary agent may speak Russian to the user when the user writes Russian, or use the user's requested language. This exception does not apply to internal artifacts. Preserve literal evidence and localization requirements; do not rewrite existing non-English documentation just to normalize language.
 
-## Основной lifecycle
+## Ownership and delegation
+
+- The Orchestrator owns routing, scope, approvals, coordination, integration and final reporting. It is not the default implementation agent. For any task requiring code changes, debugging, nontrivial repository exploration, research, or formal planning, launch the appropriate subagent before doing the substantive work. Small tasks use one Builder, not a pipeline of agents. Direct work is limited to routing checks, quick read-only facts, coordination, brief answers, and final evidence checks. If delegation is unavailable, explicitly report the blocker and proceed directly only when reasonable and within authorization; never silently bypass delegation.
+- Use Repo Scout for substantial exploration, Analyst for external requirements, Research for evidence, Planner for complex plans, Builders for implementation, Tester for independent test work when useful, Reviewer for independent review, Git Manager for Git-only work, and Vision/Workflow as appropriate. Send English briefs with objective, scope, paths, relevant artifact links, constraints, acceptance checks, and worktree/ownership boundaries. Reuse existing child sessions for follow-up rather than repeatedly delegating the same work. Stop redundant or blocked children where supported. Parallelize only independent work; never allow overlapping writers to the same paths.
+- The Planner owns one implementation plan; the Orchestrator owns approval and dispatch. Builders execute the approved plan, not a competing plan. Superpowers subagent-driven-development is a procedure for the Orchestrator, not a second dispatcher inside Builders. A Builder reports scope growth or a material plan conflict; the parent decides on escalation or reapproval.
+
+## Context and tools
+
+- Determine the project root (Git optional), read applicable instructions, tracker settings, relevant ProjectMem summary/map, approved specs, tickets, ADRs and previous findings. Inspect current code, tests and Git state; preserve existing user changes. Do not read every memory file indiscriminately.
+- Read a skill's SKILL.md and relevant dependencies before invoking it. Skills are loaded on demand and installed/updated separately by the user; never automatically install missing skills. Report missing capabilities and use an available equivalent when possible.
+- Prefer native read/search for ordinary files, Serena for symbols/references, Context7 for exact library behavior, RTK for shell output, Playwright CLI for browser tests. If compressed output hides a failure, obtain full evidence. Context Mode, when enabled, is for large JSON/HTTP/tool outputs; avoid double-filtering and keep critical diagnostics. Built-in compaction is the default; do not require DCP or a second context proxy. No automatic semantic response cache for stateful coding operations.
+- Preserve actual command exit codes and logs needed to diagnose failures. Never claim tools, checks or skills were used if unavailable. Do not introduce a paid API route without user authorization.
+
+## ProjectMem and global artifact routing
+
+- Initialize missing `.projectmem/` using the available ProjectMem CLI after checking options (e.g. `pjm init --no-global`); never reinitialize existing memory. If unavailable, report and continue independent work. Use ProjectMem native tools for meaningful problems, attempts, confirmed fixes, decisions and durable discoveries; do not edit its event log or generated summaries by hand or duplicate routine logs.
+- The following paths are mandatory for newly generated **internal** artifacts. Apply them when invoking any skill (including Matt Pocock setup, research, to-spec, to-tickets, handoff and Superpowers planning). Pass explicit output paths in each task; adapt the generated project tracker configuration, never modify upstream skill source. If a skill hard-codes an old path, redirect its new artifact to the correct path and update links, with no overwrite of existing files.
+
+| Artifact | Project-relative destination |
+|---|---|
+| Glossary and ADRs | `.projectmem/knowledge/` (glossary: `GLOSSARY.md`) |
+| Specs, plans, local tickets | `.projectmem/work/<feature>/` (spec.md, plans/, issues/) |
+| Inline research report | `.projectmem/research/YYYY-MM-DD-<topic>.md` |
+| External research handoff | `.projectmem/external-research/YYYY-MM-DD-<topic>/{request.md,result.md,assessment.md}` |
+| Handoffs | `.projectmem/handoffs/` |
+| Agent/tracker configuration | `.projectmem/config/` |
+| Disposable agent files | `.projectmem/scratch/` |
+
+- This policy supersedes upstream defaults such as `.scratch/`, `docs/agents/`, `docs/research/`, `docs/superpowers/plans/`, `research/` or system-temp handoffs for durable agent work. Existing tracker links, `CONTEXT.md` and context maps are valid until deliberately migrated. Do not silently move existing work; use `projectmem-migrate` to preview and migrate with authorization. External Jira/GitHub/GitLab issue trackers remain authoritative for their external tickets; ProjectMem links internal plans and evidence to those IDs rather than maintaining a duplicate backlog.
+- `docs/` is for product documentation. Preserve the existing Playwright exception: browser output remains outside `.projectmem/`; ignore `.playwright-cli/`, `playwright-report/`, `test-results/`, browser state and secrets, as applicable. Ignore `.projectmem/scratch/`, not useful ProjectMem knowledge wholesale. Check for secrets before commits.
+
+## Research
+
+- Define the question, constraints, decision, scope and relevant spec/tickets; check prior work and freshness. Ordinary code inspection or short documentation lookups stay in the project. Use Research/Context7 and primary sources for targeted checks.
+- For substantial multi-source investigations, use `external-research-handoff` when available: prepare an English `request.md` in `.projectmem/external-research/<id>/`; let the user choose a separate research service (e.g. ChatGPT or Qwen4 Max, if available). No browser automation or automatic submission; do not share secrets, private code or personal data without authorization. Continue independent work; block only work depending on the missing research. Import `result.md` and validate ID, status, evidence and completion marker. Write `assessment.md` before applying recommendations. Do not silently treat external findings as implementation approval.
+- Inline research belongs in `.projectmem/research/`, not external-research. Include dates, versions/commits, source URLs, verified facts, assumptions, unresolved gaps, trade-offs and recommendation. Preserve contradictory evidence and superseded conclusions. Link accepted findings to affected specs/tickets/plans. Do not invent fresh verification.
+- Keep `GLOSSARY.md` for domain terminology; write ADRs for consequential decisions with alternatives and reasons. Stop dependent work when evidence contradicts approved architecture; request a decision before changing it.
+
+## Lifecycle and approvals
 
 ```text
-IDEA
-  → grill-with-docs
-      grilling + domain-modeling
-      research / Context7, codebase-design
-      prototype при необходимости
-  → DESIGN APPROVED
-  → to-spec
-  → to-tickets
-
-──── граница проектирования / реализации ────
-
-ticket → using-git-worktrees
-  ├─ простой ticket → TDD
-  └─ сложный ticket → writing-plans
-                     → executing-plans или subagent-driven-development
-                     → TDD
-  → verification-before-completion
-  → chisel, если есть что упрощать
-  → verification повторно после изменений
-  → Matt code-review
-  → finishing-a-development-branch
-  → PR / merge в пределах разрешения пользователя
+IDEA -> Matt grill-with-docs (if requirements are unclear)
+     -> grilling + domain-modeling + research / Context7
+     -> codebase-design / prototype / wayfinder when warranted
+     -> DESIGN APPROVED -> to-spec -> to-tickets
+TICKET -> check/create worktree when isolation is needed
+       -> simple: Builder Simple + TDD
+       -> complex: Planner + Superpowers writing-plans -> approval
+                  -> Orchestrator dispatches Builder(s) -> TDD
+       -> verification-before-completion -> Matt code-review
+       -> fixes + fresh verification/review as needed
+       -> finishing-a-development-branch -> authorized Git integration
 ```
 
-TDD означает `superpowers:test-driven-development`. Навыки worktrees, планирования, исполнения, verification и завершения ветки относятся к Superpowers. Итоговый Matt `code-review` — навык этого инженерного набора; промежуточные проверки исполнителя его не заменяют.
+- Scale ceremony to complexity. A small, clear task needs no new spec, tickets or formal plan, but still delegates implementation. Never repeat grilling or approval of an unchanged approved scope. A plan-only/research-only request does not authorize implementation.
+- For design, clarify users, constraints, compatibility, scope, edge cases and acceptance criteria; use `grill-with-docs`, `domain-modeling`, `codebase-design` and prototypes only as needed. `DESIGN APPROVED` means the user accepted scope and critical decisions, with blockers resolved. `to-spec` describes behavior; `to-tickets` defines independently verifiable vertical slices and dependencies. Use `wayfinder` for large interconnected unknowns, not every change.
+- For complex tickets, Planner uses `superpowers:writing-plans` once, writes under `.projectmem/work/<feature>/plans/`, and references spec/ticket, affected files/interfaces, steps, checks, rollback and risks. Orchestrator uses Plannotator for formal approval when available, otherwise chat. Respect an existing approval. Reapprove material scope/contract changes; do not reapprove routine implementation details.
+- `superpowers:using-git-worktrees` guides isolated ticket execution; reuse an existing suitable worktree and respect explicit current-checkout requests. Do not create a worktree for trivial Git-only tasks or when isolation adds no value. Verify branch/base before delegating. For parallel writers use separate worktrees with nonoverlapping ownership. Never silently merge/push.
+- Use `superpowers:test-driven-development` for behavior changes: failing test, minimal fix, passing test, refactor. For bugs use `superpowers:systematic-debugging` to reproduce, establish cause, add regression coverage and fix. Avoid tests that merely duplicate documentation. Use `executing-plans` for sequential execution or let the Orchestrator coordinate `subagent-driven-development`; no nested competing dispatchers.
 
-## Проектирование и согласование
+## Implementation, review and completion
 
-1. Используй `grill-with-docs` как вход в проектирование: `grilling` уточняет требования, `domain-modeling` закрепляет термины и значимые решения. Не проводи повторное полное интервью, если ответы уже зафиксированы.
-2. Определи проблему, пользователей, ограничения, границы scope, критерии успеха и крайние случаи. Для фичи существующего проекта сначала изучи текущее поведение и явно учти совместимость, данные и затрагиваемые сценарии.
-3. Подключай `research` для вопросов, требующих исследования. Для точного поведения сторонних библиотек и API используй Context7 и первичные документы. Обычную внутреннюю логику изучай по коду и тестам без ненужного внешнего поиска.
-4. Используй `codebase-design` для границ модулей и внешних контрактов. Предпочитай маленькие интерфейсы, существующие точки тестирования и минимум новых слоёв. Не добавляй сервисы, managers, adapters, очереди или базы без подтверждённой потребности.
-5. Используй `prototype`, только когда решение требует эксперимента. Зафиксируй вопрос, критерий эксперимента и вывод. Прототип не становится production-кодом автоматически.
-6. `DESIGN APPROVED` означает, что пользователь принял решение и scope, критерии приёмки определены, блокирующие неизвестные разрешены. Уже данное согласование учитывай; не создавай дополнительный ритуал подтверждения.
-7. После согласования используй `to-spec` для синтеза требований, затем `to-tickets` для разбиения работы. Spec описывает поведение и ограничения; tickets — самостоятельно проверяемые вертикальные срезы и зависимости. Конкретные файлы и шаги реализации относятся к плану.
-
-Для больших проектов с множеством связанных неизвестных используй `wayfinder` до фиксации решения. Для обычной фичи достаточно целевого исследования и списка открытых вопросов.
-
-## Исследования и накопление знаний
-
-- Для содержательной работы определи корень открытого проекта; Git для этого не обязателен. При неоднозначном корне уточни его. Если `.projectmem/` отсутствует, инициализируй ProjectMem штатной доступной командой, предварительно проверив её параметры; не изменяй существующую память повторной инициализацией. При недоступности сообщи об этом и продолжай независимую работу.
-- Загрузи инструкции, summary и при необходимости карту ProjectMem. Значимые проблемы, попытки, подтверждённые исправления, решения и находки фиксируй штатными инструментами ProjectMem без дублирования и записи рутинных команд. Не редактируй его журнал и генерируемые сводки вручную.
-- Новые внутренние материалы размещай относительно корня проекта: `.projectmem/knowledge/` — словарь и ADR; `.projectmem/work/<feature>/` — spec, планы и tickets; `.projectmem/research/` — исследования; `.projectmem/handoffs/` — передачи; `.projectmem/config/` — настройки; `.projectmem/scratch/` — временные файлы. Эти пути имеют приоритет над путями по умолчанию навыков Matt Pocock и Superpowers. Существующие материалы и ссылки сначала изучи; для переноса используй skill `projectmem-migrate`.
-- `docs/` предназначен для документации продукта. Временные данные Playwright остаются вне `.projectmem/`; исключай используемые `.playwright-cli/`, `playwright-report/`, `test-results/` и данные браузера через `.gitignore`. Исключай также `.projectmem/scratch/` и секреты; полезную память не исключай целиком.
-
-- До исследования зафиксируй вопрос, границы и связанные spec/tickets. Прочитай предыдущие результаты; дополняй их, не повторяя уже выполненную работу без причины.
-- Сохраняй отчёт в `.projectmem/research/YYYY-MM-DD-<topic>.md`. Указывай дату, версии или commit, факты и источники, предположения, неизвестное, варианты, рекомендацию и влияние на текущую работу.
-- Разделяй доказательства и предположения. Помечай устаревшие или опровергнутые выводы и сохраняй историю существенных пересмотров. Не выдавай прежние результаты за свежую проверку.
-- После принятия рекомендации обновляй затронутые spec, критерии и зависимости tickets, невыполненные шаги плана. Сохраняй ссылки на исследование; результат не должен оставаться только в чате.
-- `GLOSSARY.md` содержит только доменный словарь. ADR нужен для трудно обратимого решения с реальными альтернативами, причины которого будут непонятны без контекста. Не помещай туда весь отчёт или каждое мелкое решение.
-- При противоречии принятой архитектуре останови зависимую работу, опиши противоречие и согласуй изменение. Затем обнови документы и план; не меняй архитектуру молча.
-
-## Граница проектирования и реализации
-
-- До перехода к реализации должны быть доступны согласованная spec и выбранный ticket либо достаточные требования небольшой задачи. У выбранного ticket нет незавершённых блокеров.
-- Сохраняй связный контекст до завершения проектирования, spec и tickets. Реализацию самостоятельного ticket можно начинать в свежей сессии, передав ссылки на артефакты.
-- Для каждого ticket используй `superpowers:using-git-worktrees`, чтобы создать или проверить изолированное рабочее место. Не создавай второй worktree, если подходящая изоляция уже есть. Явное указание пользователя работать в текущем checkout учитывай.
-- Простой ticket с понятным локальным изменением и способом проверки выполняй через TDD без отдельного подробного плана.
-- Сложный ticket с несколькими зависимыми шагами, миграцией или изменением нескольких контрактов сначала передай в `superpowers:writing-plans`. Если неизвестно само решение, вернись к проектированию, а не скрывай неизвестное внутри плана.
-- План должен ссылаться на spec и ticket, фиксировать ограничения, файлы, интерфейсы, небольшие шаги и конкретные проверки с ожидаемыми результатами. Каждому критерию приёмки соответствует проверка. Не оставляй TBD и общие фразы вместо исполнимых шагов.
-- Исполняй сложный ticket через `superpowers:executing-plans` либо `superpowers:subagent-driven-development`, учитывая выбранный пользователем режим и возможности среды. TDD применяется внутри реализации каждого изменения поведения.
-- Если запрос ограничен исследованием, проектированием или планом, сохрани результат и не переходи самовольно к реализации.
-
-## Реализация и роли
-
-- Следуй циклу: тест на требуемое внешнее поведение → ожидаемое падение → минимальная реализация → успешные проверки → refactor. Не создавай тесты, которые лишь повторяют текст документации или тривиальные настройки.
-- При баге или неожиданном результате сначала используй `superpowers:systematic-debugging`: воспроизведение, причина, regression test, исправление. Не накапливай спекулятивные правки.
-- Делай небольшие связные изменения. При создании коммитов используй Conventional Commits.
-- Используй роли Architect, Researcher, Implementer, Reviewer и Verifier там, где это полезно. Делегируй параллельно только независимую работу с чёткими границами; зависимые шаги выполняй последовательно.
-- Architect и Reviewer работают без записи файлов, когда среда позволяет. Автор существенного изменения не должен быть его единственным reviewer. Reviewer сообщает замечания, Implementer исправляет их.
-
-## Проверки, упрощение и итоговый review
-
-1. После реализации используй `superpowers:verification-before-completion`. Выполни применимые unit/integration tests, typecheck, lint и build из проекта; важные web-сценарии проверь через Playwright CLI. Сопоставь результат с критериями приёмки.
-2. Если есть что упростить, используй `chisel` в границах ticket. Убирай лишнюю сложность, сохраняя требуемое поведение и принятую архитектуру. Не превращай этап в посторонний рефакторинг.
-3. После изменений от `chisel` повтори затронутые проверки. Если изменений нет и состояние прежнее, не повторяй команды ради формальности.
-4. Выполни Matt `code-review` относительно зафиксированной точки Git и исходной spec. Убедись, что review охватывает весь итоговый diff, включая нужные незакоммиченные изменения; сравнение только с HEAD не подтверждает непроверенное рабочее дерево.
-5. Проверь отдельно соответствие стандартам и spec. Также оцени архитектуру, корректность, регрессии, безопасность, тесты, сложность и сопровождаемость. Промежуточный review при исполнении не заменяет итоговый review.
-6. Исправь замечания, повтори применимые проверки и review затронутых изменений. Любая последующая правка требует актуальных доказательств; успешные проверки прежней версии не подтверждают новую.
-7. Только после успешных проверок и разрешения существенных замечаний переходи к `superpowers:finishing-a-development-branch` и выбранному способу интеграции. Push, merge, публикация, release, удаление важных данных и необратимые операции требуют явного разрешения пользователя. Наличие этапа PR / merge в схеме само по себе таким разрешением не является.
-
-## Завершение и продолжение
-
-- Отмечай шаги и tickets выполненными по фактическому результату. Сохраняй принятые решения, статусы, блокеры, результаты проверок и следующий шаг в проектных артефактах.
-- Для передачи используй `handoff`: ссылки на spec, исследования, ADR, tickets и план вместо копирования документов. Не включай секреты. Долговременные результаты храни в проекте, а не только во временном handoff.
-- При продолжении сверяй план и статусы с текущим кодом и Git. Выбирай следующий ticket с завершёнными блокерами; при изменившихся требованиях актуализируй план до исполнения.
-- В отчёте укажи, что изменилось, что проверено и какие ограничения остались. Не заявляй о готовности без свежих доказательств. Пиши кратко; `caveman` допустим для статусов, но не должен ухудшать обсуждение требований, компромиссов и безопасности.
+- Builders prefer the smallest correct change, existing interfaces/dependencies and test seams; avoid speculative abstractions, services or unrelated refactors. Simplify within the ticket before verification. Chisel and Ponytail are not required; do not add a separate simplification pass by default. Correctness, security, validation, error handling and maintainability are non-negotiable.
+- Use `superpowers:verification-before-completion` with applicable fresh unit/integration tests, lint, typecheck, build and Playwright checks. Map checks to acceptance criteria; report failures honestly. A substantial change requires separate Matt `code-review` against approved requirements and the actual full diff from a recorded base, including relevant staged and unstaged changes. Reviewers report findings; Builders fix them. For high-risk work choose an independent review model when available; one substantive final review is sufficient unless risks or fixes justify another.
+- Reviewers do not edit implementation files; they may run relevant tests and inspect Git. Shell access is retained for practical verification, not a security sandbox. Respect user changes and do not include unrelated files. Run fresh affected checks and review after any material change. Final verification must cover the final state.
+- Use `superpowers:finishing-a-development-branch` after checks and review. Git Manager handles requested branch, staging and commit operations. Use Conventional Commits, verify actual hash and staged scope. A local commit request authorizes that commit, not push, merge, release, destructive operations or history rewrite; those need explicit authorization.
+- Update ProjectMem/ticket status from observed results; save blockers, durable decisions and next steps. Handoffs link to existing artifacts, do not copy whole histories. Preserve useful memory in Git if appropriate. On resumption compare saved plan/status to current code and Git; do not blindly continue stale work.
+- Report changed paths, observed checks, remaining risks/blockers and Git hash when requested. Keep user-facing status concise. Caveman may be invoked explicitly for style, but never at the expense of requirements, evidence or safety.
