@@ -188,20 +188,45 @@ try {
     $env:PLANNOTATOR_MINIMAL = '1'
     Install-RemoteScript 'https://plannotator.ai/install.ps1' @{ Minimal = $true; NonInteractive = $true }
 } finally { $env:PLANNOTATOR_MINIMAL = $previousMinimal }
+# RTK is optional. A broken winget source must not interrupt the rest of the setup.
+# Explicit --source winget avoids querying msstore, which may be unavailable.
 if (Get-Command winget -ErrorAction SilentlyContinue) {
-    & winget install --id rtk-ai.rtk --exact --accept-source-agreements --accept-package-agreements --disable-interactivity
-    # 0x8A15002B: already current; winget install also upgrades installed packages.
-    if ($LASTEXITCODE -notin @(0,-1978335189)) { throw "RTK install/update failed ($LASTEXITCODE)." }
+    try {
+        & winget install --id rtk-ai.rtk --exact --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity
+        $rtkInstallExit = $LASTEXITCODE
+        # 0x8A15002B means that winget has no newer version to install.
+        if ($rtkInstallExit -notin @(0,-1978335189)) {
+            Write-Warning "RTK installation/update failed (winget exit $rtkInstallExit); continuing without blocking other components. Retry: winget install --id rtk-ai.rtk -e --source winget"
+        }
+    } catch {
+        Write-Warning "RTK installation/update could not run: $($_.Exception.Message). Continuing without blocking other components."
+    }
 } elseif (Get-Command cargo -ErrorAction SilentlyContinue) {
-    Run-Checked 'cargo' @('install','--git','https://github.com/rtk-ai/rtk','rtk','--locked')
-} else { throw 'RTK requires winget or Cargo. Install one and rerun this script.' }
+    try { Run-Checked 'cargo' @('install','--git','https://github.com/rtk-ai/rtk','rtk','--locked') }
+    catch { Write-Warning "RTK Cargo install failed: $($_.Exception.Message). Continuing without RTK." }
+} else {
+    Write-Warning 'RTK skipped: winget and Cargo are unavailable. The other components will still be configured.'
+}
 
-if (Get-Command rtk -ErrorAction SilentlyContinue) {
+# A fresh WinGet installation may not yet have refreshed PATH in this shell.
+$rtkCommand = Get-Command rtk -ErrorAction SilentlyContinue
+$rtkExe = if ($rtkCommand) { $rtkCommand.Source } else { $null }
+if (-not $rtkExe -and $env:LOCALAPPDATA) {
+    $wingetRtk = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\rtk.exe'
+    if (Test-Path -LiteralPath $wingetRtk) { $rtkExe = $wingetRtk }
+}
+if ($rtkExe) {
     if ($configDir -eq (Join-Path $HOME '.config\opencode')) {
-        Run-Checked 'rtk' @('init','--global','--opencode')
-        Run-Checked 'rtk' @('init','--show')
-    } else { Write-Warning 'Custom OpenCode config directory: verify RTK generated hook and copy explicitly if needed.' }
-} else { Write-Warning 'RTK not in PATH; restart shell then run rtk init --global --opencode.' }
+        try {
+            Run-Checked $rtkExe @('init','--global','--opencode')
+            Run-Checked $rtkExe @('init','--show')
+        } catch { Write-Warning "RTK hook initialization failed: $($_.Exception.Message). Re-run 'rtk init --global --opencode' after checking RTK." }
+    } else {
+        Write-Warning 'Custom OpenCode config directory: verify RTK generated hook and copy explicitly if needed.'
+    }
+} else {
+    Write-Warning 'RTK executable not found in current PATH or WinGet links; if installation succeeded, restart the terminal and run: rtk init --global --opencode'
+}
 # Activate the configured plugins before updating the running background server.
 Run-Checked 'opencode' @('models')
 Run-Checked 'opencode' @('plugin','update')

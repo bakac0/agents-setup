@@ -1,0 +1,29 @@
+{
+  "$comment": "Global OpenCode + Codex skill set. Vercel Skills CLI owns third-party install/update and its lockfile; this manifest declares intent. Native applications and OpenCode plugins are managed separately.",
+  "schemaVersion": 1,
+  "cli": "skills@1.9.0",
+  "scope": "global",
+  "agents": ["opencode", "codex"],
+  "skills": [
+    {
+      "name": "code-simplifier",
+      "source": "getsentry/skills",
+      "skill": "code-simplifier"
+    },
+    {
+      "name": "better-writing",
+      "source": "forjd/better-writing",
+      "skill": "better-writing"
+    },
+    {
+      "name": "technical-writing",
+      "source": "./myskills",
+      "skill": "technical-writing"
+    },
+    {
+      "name": "drawio",
+      "source": "https://github.com/jgraph/drawio-mcp/tree/main/plugins/claude-code/skills/drawio",
+      "skill": "drawio"
+    }
+  ]
+}

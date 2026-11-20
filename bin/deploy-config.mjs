@@ -29,16 +29,11 @@ function write(file,content,{preserve=false}={}) {
   try { fs.writeFileSync(tmp,content,{flag:'wx'}); fs.renameSync(tmp,file); } finally { if(fs.existsSync(tmp))fs.unlinkSync(tmp); }
   console.log('Updated '+file);
 }
-function deploySkills(){
-  for(const name of ['external-research-handoff','projectmem-migrate']) {
-    const src=path.join(root,'myskills',name), dest=path.join(skillsDir,name);
-    // Do not follow pre-existing symlinks into another checkout/vendor installation.
-    if(fs.existsSync(dest)&&fs.lstatSync(dest).isSymbolicLink())throw Error('Resolve owned skill symlink before deployment: '+dest);
-    const walk=(dir)=>{for(const e of fs.readdirSync(dir,{withFileTypes:true})){const p=path.join(dir,e.name);if(e.isDirectory())walk(p);else if(e.isFile())write(path.join(dest,path.relative(src,p)),fs.readFileSync(p));}};
-    walk(src);
-  }
+// Skills are managed exclusively through Vercel Skills CLI (bin/install-skills.mjs).
+if(args.includes('--skills')) {
+  console.error('The legacy --skills path has been retired. Use bin/install-skills.sh or bin/install-skills.ps1 (Vercel Skills CLI).');
+  process.exit(2);
 }
-if(args.includes('--skills')) {deploySkills(); process.exit(0);}
 const globalFile=path.join(config,'AGENTS.md');
 const policy=fs.readFileSync(path.join(root,'AGENTS.md'),'utf8').trimEnd();
 let previous=fs.existsSync(globalFile)?fs.readFileSync(globalFile,'utf8'):'';

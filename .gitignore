@@ -4,3 +4,9 @@ skills
 playwright-report/
 test-results/
 .projectmem/scratch/
+.projectmem/events.jsonl
+.projectmem/watch.pid
+.projectmem/watch.log
+.projectmem/structure.json
+
+.skill-lock.json

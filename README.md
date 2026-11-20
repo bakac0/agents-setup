@@ -1,4 +1,4 @@
-# Engineering agent stack — revision 2026-11-16
+# Engineering agent stack — revision 2026-11-20
 
 A reproducible OpenCode v2 configuration for the existing GPT agent profile. OpenChamber remains the UI; OpenCode is the execution engine. Codex can share the engineering rules and explicitly installed skills, but the OpenCode agent YAML and translator are not Codex plugins.
 
@@ -28,23 +28,61 @@ node bin/deploy-config.mjs
 
 Use `--config-dir /actual/opencode/config` when needed. The deploy helper backs up changed existing files under `stack-backups/<timestamp>/` inside that config directory. It updates a managed block in global `AGENTS.md`, replacing the exact original policy from the supplied archive or preserving unrelated global text. Review any preserved older rules for contradictions. The 18 named managed agent files are intentionally replaced; unrelated agents are untouched. The local plugin directory is auto-discovered by OpenCode. Do not add a second copy of the same plugin.
 
-## Skills are user-managed
+## Skills: declarative Vercel Skills CLI (explicit install)
 
-The scripts do **not** run `skills add`, `skills update`, or Playwright's skill installer. Do not edit the bundled Matt Pocock snapshots or `.skill-lock.json` to implement project-specific rules. Upstream skill updates remain separate and user-directed. Superpowers exposes its own bundled skills through its runtime plugin; this is not an independent `skills` manager installation.
+**The main `bin/install-all.sh` and `bin/install-all.ps1` never install or update skills.** They manage apps, plugins, MCP, agents and the translator. Skill installation is an independent explicit step. The existing Matt Pocock `.skill-lock.json` and Superpowers upstream installation are untouched.
 
-Install/update the two owned skills explicitly, when desired:
+The **editable source of truth** for the extra global skills is [`skills.json`](skills.json). It declares both target agents (`opencode` and `codex`), the desired skills and where they come from. The thin wrapper calls the **official [Vercel Skills CLI](https://github.com/vercel-labs/skills)** (`skills@1.9.0` pinned in the manifest); it does **not** clone GitHub repositories or maintain its own vendor copies. Vercel manages its own global lockfile and the shared `~/.agents/skills/` + agent integrations.
+
+Requires **Node.js >=22.20.0** and npm/npx. To preview and install on macOS, Linux or WSL:
 
 ```bash
-node bin/deploy-config.mjs --skills
+bash bin/install-skills.sh --dry-run
+bash bin/install-skills.sh --migrate-legacy   # first upgrade from our old custom installer
+bash bin/install-skills.sh                    # subsequent updates, applies skills.json
 ```
 
-The default destination is `~/.agents/skills`; `--skills-dir <path>` selects another directory. Ensure each client can discover those skills, using its supported shared-skill path or existing integration. `myskills/` is the canonical owned source; the `skills/` copy in the archive is a snapshot. Do not independently edit the mirror. The helper does not modify unrelated skills. For Codex, merge the English global rules from `AGENTS.md` into your existing `~/.codex/AGENTS.md` explicitly; do not overwrite unrelated instructions.
+On Windows PowerShell:
 
-If an upstream skill is missing, the agent reports that and uses a suitable installed equivalent; it must not install it itself. Caveman is optional and explicit; Chisel is no longer part of the required lifecycle. Playwright's CLI skill can be installed manually if wanted:
+```powershell
+.\bin\install-skills.ps1 --dry-run
+.\bin\install-skills.ps1 --migrate-legacy  # first upgrade only
+.\bin\install-skills.ps1
+```
+
+`--migrate-legacy` is necessary **only if** the previous custom installer left untracked skill directories/symlinks. Without it, the wrapper stops rather than silently overwriting them. Migration backs up only conflicting named entries to `~/.agents/skill-migration-backups/<timestamp>/`; unrelated user skills are not touched. Run `--dry-run` first to see which entries conflict. **No deletions by default**: removing a skill from `skills.json` preserves the former install. To remove entries that *this wrapper previously installed* and are no longer listed, run `bash bin/install-skills.sh --prune` (or PowerShell equivalent) after inspecting the plan with `--dry-run --prune`.
+
+| Skill | Origin | Owner |
+|---|---|---|
+| `code-simplifier` | `getsentry/skills` | Vercel downloads upstream |
+| `better-writing` | `forjd/better-writing` | Vercel downloads upstream |
+| `technical-writing` | `myskills/technical-writing/` | Our locally adapted skill; installed by Vercel |
+| `drawio` | Official `jgraph/drawio-mcp` skill | Vercel downloads upstream |
+| `external-research-handoff` | `myskills/external-research-handoff/` | Our local skill; installed by Vercel |
+| `projectmem-migrate` | `myskills/projectmem-migrate/` | Our local skill; installed by Vercel |
+
+For day-to-day checks:
+
+```bash
+bash bin/install-skills.sh --list           # Vercel: skills ls -g
+bash bin/install-skills.sh --check          # Vercel: skills check
+bash bin/install-skills.sh --dry-run        # Preview manifest application
+bash bin/install-skills.sh                  # Reapply list, update sources
+```
+
+`skills.json` is **our small global manifest**, because Vercel's `experimental_sync` uses project-local `package.json` and `.agents/skills/`, not your global skill installation. We deliberately use the **stable `skills add -g`** for the global setup. Vercel's own global lockfile may live in `~/.local/state/skills/.skill-lock.json` (depending on XDG configuration) or `~/.agents/.skill-lock.json` on older versions. The wrapper stores only the names it manages in `~/.agents/.vercel-skillstack.json`, so optional pruning never deletes unrelated skills. The repository's `.skill-lock.json` is the independent Matt Pocock metadata and is not modified.
+
+The `myskills/` contents, including adapted Technical Writing, are not overwritten by upstream updates. Their changes are applied on the next explicit installer run. Existing Superpowers skills keep the original plugin update path; **do not install a duplicate copy of Superpowers via this manifest**.
+
+Mermaid in Markdown remains the default for small diagrams. `drawio` generates editable diagrams on demand; it does **not** install Draw.io Desktop or the optional official Draw.io MCP. Install native applications with their own installers when required, and follow [Draw.io MCP documentation](https://github.com/jgraph/drawio-mcp/blob/main/mcp-tool-server/README.md#opencode) if you want it.
+
+For Codex, merge the relevant global rules from `AGENTS.md` into `~/.codex/AGENTS.md` deliberately, without overwriting unrelated instructions. Agents do not install missing skills autonomously. Caveman remains opt-in. Playwright has its own native skill setup and is not managed by this manifest:
 
 ```bash
 playwright-cli install --skills=agents --global
 ```
+
+The first installation has **not** been run against your actual OpenCode/Codex installation. The offline test suite checks manifest validation, CLI arguments, non-destructive first-run migration, repeat runs and pruning; actual GitHub/npm downloads require a normal environment with internet access and Node >=22.20.0.
 
 ## Verify migration on the actual server
 
