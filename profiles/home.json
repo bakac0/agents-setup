@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "profile": "home",
+  "agents": {
+    "orchestrator": {
+      "model": "openai/gpt-6-luna#medium"
+    },
+    "planner": {
+      "model": "openai/gpt-6.1-terra#medium"
+    },
+    "planner-hard": {
+      "model": "openai/gpt-6.1-sol#high"
+    },
+    "builder-simple": {
+      "model": "openai/gpt-6.1-terra#low"
+    },
+    "builder-medium": {
+      "model": "openai/gpt-6.1-terra#medium"
+    },
+    "builder-hard": {
+      "model": "openai/gpt-6.1-sol#high"
+    },
+    "builder-expert": {
+      "model": "openai/gpt-6-astra#high"
+    },
+    "reviewer-fast": {
+      "model": "openai/gpt-6-luna#medium"
+    },
+    "reviewer": {
+      "model": "openai/gpt-6.1-sol#high"
+    },
+    "reviewer-independent": {
+      "model": "openai/gpt-6-astra#medium"
+    },
+    "analyst": {
+      "model": "openai/gpt-6-luna#medium"
+    },
+    "research": {
+      "model": "openai/gpt-6-luna#medium"
+    },
+    "repo-scout": {
+      "model": "openai/gpt-6-luna#low"
+    },
+    "tester": {
+      "model": "openai/gpt-6-luna#low"
+    },
+    "vision": {
+      "model": "openai/gpt-6.1-terra#medium"
+    },
+    "vision-second-opinion": {
+      "model": "openai/gpt-6.1-sol#high"
+    },
+    "workflow": {
+      "model": "openai/gpt-6.1-terra#low"
+    },
+    "git-manager": {
+      "model": "openai/gpt-6-luna#medium"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 <# Run again to update from this complete checkout. No automatic skill installation. #>
 [CmdletBinding()]
-param()
+param([Parameter(ValueFromRemainingArguments=$true)][string[]]$ProfileArguments)
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $repoDir = Split-Path -Parent $PSScriptRoot
@@ -50,6 +50,15 @@ Require-Command 'git' | Out-Null
 Run-Checked $node @('-e','if (parseInt(process.versions.node) < 22) process.exit(1)')
 $hasOpenCode = [bool](Get-Command opencode -ErrorAction SilentlyContinue)
 $configDir = if ($env:OPENCODE_CONFIG_DIR) { $env:OPENCODE_CONFIG_DIR } else { Join-Path $HOME '.config\opencode' }
+if ($ProfileArguments.Count -and ($ProfileArguments.Count -ne 2 -or $ProfileArguments[0] -ne '--profile' -or $ProfileArguments[1] -cnotin @('work','home'))) { throw 'Usage: bin/install-all.ps1 [--profile work|home]' }
+$profileResolver = @'
+import {pathToFileURL} from 'node:url';
+const {resolveProfile}=await import(pathToFileURL(process.argv[2]));
+try { console.log(resolveProfile({configDir:process.argv[3],flag:process.argv[4]==='--profile'?process.argv[5]:undefined})); }
+catch(error) { console.error(error.message); process.exit(1); }
+'@
+$profile = $profileResolver | & $node --input-type=module - (Join-Path $repoDir 'bin\profile.mjs') $configDir @ProfileArguments
+if ($LASTEXITCODE -ne 0) { throw 'Choose --profile work|home or set AGENT_STACK_PROFILE.' }
 $cliPackages = Join-Path $configDir 'cli-packages'
 $statusLinePath = Join-Path $cliPackages 'node_modules\@rashidrazak\opencode-status-line'
 
@@ -114,7 +123,7 @@ Ensure-Mcp 'context7' @('--url','https://mcp.context7.com/mcp')
 Run-Checked $npm @('install','--prefix',$cliPackages,'--no-save','--package-lock=false','@rashidrazak/opencode-status-line@latest','jsonc-parser@3.3.1')
 $cliEditor | & $node - $cliPath $statusLinePath
 if ($LASTEXITCODE -ne 0) { throw 'Could not update cli.json.' }
-Run-Checked $node @($deployScript,'--config-dir',$configDir)
+Run-Checked $node @($deployScript,'--profile',$profile,'--config-dir',$configDir)
 
 $serenaEditor = @'
 const fs = require('node:fs');

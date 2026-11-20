@@ -1,6 +1,6 @@
 # Engineering agent stack — revision 2026-11-20
 
-A reproducible OpenCode v2 configuration for the existing GPT agent profile. OpenChamber remains the UI; OpenCode is the execution engine. Codex can share the engineering rules and explicitly installed skills, but the OpenCode agent YAML and translator are not Codex plugins.
+A reproducible OpenCode v2 configuration with one agent source and per-machine model profiles. OpenChamber remains the UI; OpenCode is the execution engine. Codex can share the engineering rules and explicitly installed skills, but the OpenCode agent YAML and translator are not Codex plugins.
 
 ## Install or update
 
@@ -9,24 +9,33 @@ Keep the complete checkout. The install scripts now share one canonical source f
 macOS/Linux/WSL:
 
 ```bash
-bash bin/install-all.sh
+bash bin/install-all.sh --profile work
 ```
 
 Windows PowerShell (from the checkout):
 
 ```powershell
-& .\bin\install-all.ps1
+& .\bin\install-all.ps1 --profile home
 ```
 
-The scripts install/update Playwright CLI, Superpowers, LiteLLM, Plannotator, Subagent Intervene, Status Line, Context7, Serena, ProjectMem, and RTK; deploy the global policy, all 18 GPT agents and the new local translator; preserve the translator's existing settings; and attempt to remove the legacy Ponytail, DCP and Beads package registrations if present. Beads databases/CLI and old skill folders are not deleted. Native RTK integration is initialized when the binary and standard config directory are available. Existing Serena idle timeout is preserved; otherwise the original 5-minute default is applied. Existing provider credentials are not replaced. Package updates use the existing upstream update mechanism; this is not a fully pinned dependency lock.
+The scripts install/update Playwright CLI, Superpowers, LiteLLM, Plannotator, Subagent Intervene, Status Line, Context7, Serena, ProjectMem, and RTK; deploy the global policy, all 18 agents with the selected profile's models and the local translator; preserve the translator's existing settings; and attempt to remove the legacy Ponytail, DCP and Beads package registrations if present. Beads databases/CLI and old skill folders are not deleted. Native RTK integration is initialized when the binary and standard config directory are available. Existing Serena idle timeout is preserved; otherwise the original 5-minute default is applied. Existing provider credentials are not replaced. Package updates use the existing upstream update mechanism; this is not a fully pinned dependency lock.
 
 If OpenCode is absent, only Playwright CLI is updated. To deploy only the owned configuration without reinstalling tools or touching providers:
 
 ```bash
-node bin/deploy-config.mjs
+node bin/deploy-config.mjs --profile work
 ```
 
-Use `--config-dir /actual/opencode/config` when needed. The deploy helper backs up changed existing files under `stack-backups/<timestamp>/` inside that config directory. It updates a managed block in global `AGENTS.md`, replacing the exact original policy from the supplied archive or preserving unrelated global text. Review any preserved older rules for contradictions. The 18 named managed agent files are intentionally replaced; unrelated agents are untouched. The local plugin directory is auto-discovered by OpenCode. Do not add a second copy of the same plugin.
+Profile resolution is `--profile work|home`, then `AGENT_STACK_PROFILE`, then `<config>/stack-profile`. Deployment persists the resolved name for subsequent runs. Missing, empty or unknown profiles fail rather than guessing; the corresponding `profiles/<name>.json` must exist. The skills installer uses the same resolver and accepts `--profile` and `--config-dir` too.
+
+```text
+myagents/             # 18 authored Markdown agents, no model frontmatter
+profiles/work.json    # litellm/* model map
+profiles/home.json    # openai/*#effort model map
+skills.json           # explicit skill manifest; optional profiles: ["work"]
+```
+
+Use `--config-dir /actual/opencode/config` when needed. The deploy helper backs up changed existing files under `stack-backups/<timestamp>-<pid>/` inside that config directory. It updates a managed block in global `AGENTS.md`, replacing the exact original policy from the supplied archive or preserving unrelated global text. Review any preserved older rules for contradictions. Models are injected before the closing frontmatter delimiter. The 18 managed agent files are intentionally replaced; `<config>/agents/.agent-stack-deployed.json` records their names. Only stale files in that previous list are pruned and backed up; unlisted user agents survive. An old untracked `vision-gemini.md` must be reviewed manually, not guessed to be managed. The local plugin directory is auto-discovered by OpenCode. Do not add a second copy of the same plugin.
 
 ## Skills: declarative Vercel Skills CLI (explicit install)
 
@@ -58,8 +67,18 @@ On Windows PowerShell:
 | `better-writing` | `forjd/better-writing` | Vercel downloads upstream |
 | `technical-writing` | `myskills/technical-writing/` | Our locally adapted skill; installed by Vercel |
 | `drawio` | Official `jgraph/drawio-mcp` skill | Vercel downloads upstream |
-| `external-research-handoff` | `myskills/external-research-handoff/` | Our local skill; installed by Vercel |
-| `projectmem-migrate` | `myskills/projectmem-migrate/` | Our local skill; installed by Vercel |
+
+The manifest currently contains **four** entries; it is unchanged. The earlier six-entry documentation included `external-research-handoff` and `projectmem-migrate`, neither of which is installed by this manifest. Entries may opt into one or both machine profiles with a non-empty `profiles` array; absent means both. `--dry-run` and `--list` print excluded entries with the profile reason. Switching profiles skips installation, but does not uninstall existing skill files.
+
+### Per-machine skill on/off
+
+```bash
+node bin/skills-toggle.mjs off drawio
+node bin/skills-toggle.mjs status
+node bin/skills-toggle.mjs on drawio
+```
+
+All commands accept `--config-dir DIR`. State lives in `<config>/skill-toggles.json`; disabling adds an exact `skill`/name/`deny` entry to the global `permissions` array in `opencode.json` (or the existing `opencode.jsonc`). Enabling removes that exact deny tuple only, preserving unrelated and extended rules. An unrelated wildcard deny can still prevent access. The first configuration write saves an original backup under `stack-backups/`; JSONC edits preserve comments and unrelated text. This requires `jsonc-parser`, installed by `install-all` under `<config>/cli-packages/`. Skill files are never moved or changed; these toggles enforce OpenCode permissions, not Codex permissions.
 
 For day-to-day checks:
 
@@ -135,23 +154,38 @@ If no activation log or plugin entry appears, diagnose server/config discovery f
 
 `AGENTS.md` is the global engineering policy. Matt Pocock owns requirements/domain design and final code review methodology; Superpowers owns implementation discipline. The Planner produces a single plan, the Orchestrator coordinates, and Builders implement. Existing project rules and explicit approved scope remain relevant; review conflicts before work.
 
-| Role | GPT profile | Purpose |
-|---|---|---|
-| Orchestrator | Luna medium | Mandatory delegation for substantive work |
-| Planner | Terra medium | Single ordinary complex-ticket plan |
-| Planner Hard | Sol high | High-risk or cross-system plans and escalation |
-| Builder Simple | Terra low | Small isolated changes |
-| Builder Medium | Terra medium | Ordinary multi-file features |
-| Builder Hard | Sol high | Complex implementation/debugging |
-| Builder Expert | Astra high | Exceptional evidenced blockers |
-| Reviewer Fast | Luna medium | Optional low-risk check |
-| Reviewer | Sol high | Substantive review, particularly Terra-authored work |
-| Reviewer Independent | Astra medium | High-risk Sol-authored work |
-| Analyst / Research / Repo Scout / Tester | Luna variants | Evidence, discovery and tests |
-| Vision / Vision Second Opinion | Terra medium / Sol high | Visual evidence |
-| Workflow / Git Manager | Terra low / Luna medium | Authorized workflow and Git operations |
+Work model IDs below have the `litellm/` prefix; home IDs have `openai/`. Agent bodies and permissions are shared; only models vary.
 
-Models/effort are a starting hypothesis based on the supplied profile, not a benchmark. Check actual model IDs/variants and quota availability. Reviewer edit permission is denied, but shell remains available for tests; this is not a hard read-only sandbox. The Orchestrator's permissions remain broad for coordination; delegation is a behavioral rule rather than a tool-level enforcement mechanism.
+| Agent | Work model | Home model | Purpose |
+|---|---|---|---|
+| `orchestrator` | deepseek-v4.1-flash-1017 | gpt-6-luna#medium | Delegation and coordination |
+| `planner` | claude-opus-5-5 | gpt-6.1-terra#medium | Ordinary complex-ticket plan |
+| `planner-hard` | gpt-6.1-sol | gpt-6.1-sol#high | High-risk planning |
+| `builder-simple` | deepseek-v4.1-flash-1017 | gpt-6.1-terra#low | Small isolated changes |
+| `builder-medium` | gpt-6.1-sol | gpt-6.1-terra#medium | Multi-file features |
+| `builder-hard` | kimi-k3.1-pro | gpt-6.1-sol#high | Complex implementation/debugging |
+| `builder-expert` | claude-opus-5-5 | gpt-6-astra#high | Exceptional evidenced blockers |
+| `reviewer-fast` | minimax-m3.1-flash | gpt-6-luna#medium | Low-risk checks |
+| `reviewer` | kimi-k3.1-pro | gpt-6.1-sol#high | Substantive review |
+| `reviewer-independent` | gpt-6.1-sol | gpt-6-astra#medium | Independent high-risk review |
+| `analyst` | deepseek-v4.1-flash-1017 | gpt-6-luna#medium | Requirements evidence |
+| `research` | deepseek-v4.1-flash-1017 | gpt-6-luna#medium | Primary-source research |
+| `repo-scout` | deepseek-v4.1-flash-1017 | gpt-6-luna#low | Repository discovery |
+| `tester` | deepseek-v4.1-flash-1017 | gpt-6-luna#low | Test evidence |
+| `vision` | gpt-6-luna | gpt-6.1-terra#medium | Visual evidence |
+| `vision-second-opinion` | gemini-3.8-flash | gpt-6.1-sol#high | Independent visual evidence |
+| `workflow` | minimax-m3.1-flash | gpt-6.1-terra#low | Authorized workflow operations |
+| `git-manager` | gpt-6-luna | gpt-6-luna#medium | Authorized Git operations |
+
+Models/effort are assignments, not a benchmark. Check actual IDs/variants and quota availability on each machine. Reviewer edit permission is denied, but shell remains available for tests; this is not a hard read-only sandbox.
+
+**Subagent whitelist.** The orchestrator denies wildcard subagent dispatch, then explicitly allows all 18 names above, including `git-manager`, `planner-hard` and `vision-second-opinion`. Its edit tool is denied and shell is restricted to read-only Git inspection and `rg`. Leaf agents and both planners cannot spawn children; the primary session owns coordination.
+
+**Code Mode.** `execute` is allowed for every agent and is the default tool path: batch independent calls in one script, return only needed evidence, and use a direct tool for a single call. Denying `execute` flattens its reachable tools into direct definitions in every request; it is not a context-saving switch.
+
+**Reading `.env*`.** Builders and Tester may read environment files to learn key names; other roles remain denied. Values must never be printed, echoed, logged, committed, copied into a file, or sent through chat or subagent prompts. Commands that need credentials load the environment without exposing values; accidental capture is reported as `[secret]`. This is a behavioral guard, not value-level redaction.
+
+**Model debate.** Architecture-level or high-risk decisions trigger a primary-session-coordinated panel: one written proposal, 2–3 reviewers on different models, then a second round showing each other's verdicts. State the trigger in one line; cap at two rounds and 300 words per verdict; never use it for routine implementation. Work uses Planner/Opus, Reviewer/Kimi and Independent Reviewer/Sol; home uses Reviewer/Sol, Independent Reviewer/Astra and Planner Hard/Sol. Record the outcome and dissent in an ADR under the consuming project's `.projectmem/knowledge/`.
 
 ```text
 Small change: Orchestrator -> Builder Simple -> targeted checks -> result

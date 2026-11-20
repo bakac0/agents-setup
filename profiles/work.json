@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "profile": "work",
+  "agents": {
+    "orchestrator": {
+      "model": "litellm/deepseek-v4.1-flash-1017"
+    },
+    "planner": {
+      "model": "litellm/claude-opus-5-5"
+    },
+    "planner-hard": {
+      "model": "litellm/gpt-6.1-sol"
+    },
+    "builder-simple": {
+      "model": "litellm/deepseek-v4.1-flash-1017"
+    },
+    "builder-medium": {
+      "model": "litellm/gpt-6.1-sol"
+    },
+    "builder-hard": {
+      "model": "litellm/kimi-k3.1-pro"
+    },
+    "builder-expert": {
+      "model": "litellm/claude-opus-5-5"
+    },
+    "reviewer-fast": {
+      "model": "litellm/minimax-m3.1-flash"
+    },
+    "reviewer": {
+      "model": "litellm/kimi-k3.1-pro"
+    },
+    "reviewer-independent": {
+      "model": "litellm/gpt-6.1-sol"
+    },
+    "analyst": {
+      "model": "litellm/deepseek-v4.1-flash-1017"
+    },
+    "research": {
+      "model": "litellm/deepseek-v4.1-flash-1017"
+    },
+    "repo-scout": {
+      "model": "litellm/deepseek-v4.1-flash-1017"
+    },
+    "tester": {
+      "model": "litellm/deepseek-v4.1-flash-1017"
+    },
+    "vision": {
+      "model": "litellm/gpt-6-luna"
+    },
+    "vision-second-opinion": {
+      "model": "litellm/gemini-3.8-flash"
+    },
+    "workflow": {
+      "model": "litellm/minimax-m3.1-flash"
+    },
+    "git-manager": {
+      "model": "litellm/gpt-6-luna"
+    }
+  }
+}

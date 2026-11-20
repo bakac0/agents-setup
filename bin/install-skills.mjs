@@ -10,13 +10,15 @@ import os from 'node:os';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath, pathToFileURL} from 'node:url';
+import {resolveProfile} from './profile.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const defaultManifest = path.join(repoRoot, 'skills.json');
 const home = os.homedir();
 const managedState = path.join(home, '.agents', '.vercel-skillstack.json');
 const codexShared = path.join(home, '.agents', 'skills');
-const openCodeRoot = path.join(process.env.OPENCODE_CONFIG_DIR || path.join(process.env.XDG_CONFIG_HOME || path.join(home, '.config'), 'opencode'), 'skills');
+const configDir = process.env.OPENCODE_CONFIG_DIR || path.join(process.env.XDG_CONFIG_HOME || path.join(home, '.config'), 'opencode');
+const openCodeRoot = path.join(configDir, 'skills');
 const legacyCodexRoot = path.join(home, '.codex', 'skills');
 const globalLocks = [
   path.join(process.env.XDG_STATE_HOME || path.join(home, '.local', 'state'), 'skills', '.skill-lock.json'),
@@ -30,6 +32,7 @@ export function parseOptions(argv) {
   const opts = {action:'install',dryRun:false,migrateLegacy:false,prune:false,manifest:defaultManifest};
   for(let i=0;i<argv.length;i++) {
     const v=argv[i];
+    if(v==='--profile'||v==='--config-dir') {if(!argv[i+1]||argv[i+1].startsWith('-'))throw Error(`${v} needs a value`);opts[v==='--profile'?'profile':'configDir']=argv[++i];continue;}
     if(v==='--manifest') { if(!argv[i+1]||argv[i+1].startsWith('-'))throw Error('--manifest needs a path');opts.manifest=path.resolve(argv[++i]);continue; }
     if(v==='--dry-run') {opts.dryRun=true;continue;}
     if(v==='--migrate-legacy') {opts.migrateLegacy=true;continue;}
@@ -51,6 +54,7 @@ export function readManifest(file) {
     if(!item||typeof item.name!=='string'||!namePattern.test(item.name)||item.skill!==item.name||typeof item.source!=='string'||!item.source.trim())throw Error('skills.json: invalid skill entry');
     if(seen.has(item.name))throw Error(`skills.json: duplicate skill ${item.name}`);
     seen.add(item.name);
+    if(item.profiles!==undefined&&(!Array.isArray(item.profiles)||!item.profiles.length||item.profiles.some(p=>!['work','home'].includes(p))))throw Error(`skills.json: invalid profiles for ${item.name}; expected a non-empty array of work or home`);
     if(item.source.startsWith('./')) {
       const p=path.resolve(repoRoot,item.source,item.name,'SKILL.md');
       if(!p.startsWith(repoRoot+path.sep)||!fs.existsSync(p))throw Error(`Missing local skill: ${p}`);
@@ -127,6 +131,8 @@ Global skill manifest: skills.json (OpenCode + Codex). Uses Vercel Skills CLI.
   --list            Run Vercel 'skills ls -g'
   --check           Run Vercel 'skills check' (exit nonzero if updates)
   --manifest FILE   Alternative declarative manifest
+  --profile NAME    work or home (then AGENT_STACK_PROFILE, then saved stack-profile)
+  --config-dir DIR  OpenCode config directory for the saved profile
   --help            This help
 
 Normal installation never prunes or replaces non-managed skills silently.
@@ -137,17 +143,20 @@ async function main(){
   if(opt.action==='help'){help();return;}
   if(!opt.dryRun && process.env.SKILLS_CLI_TEST_MODE!=='1')ensureNodeVersion();
   const config=readManifest(opt.manifest);
+  const profile=resolveProfile({configDir:opt.configDir||configDir,flag:opt.profile});
+  const selected={...config,skills:config.skills.filter(s=>!s.profiles||s.profiles.includes(profile))};
+  for(const skill of config.skills)if(!selected.skills.includes(skill))say(`SKIP: ${skill.name} (profile: ${skill.profiles.join(', ')} only)`);
   say(`Vercel Skills CLI: ${config.cli} | scope: ${config.scope} | agents: ${config.agents.join(', ')}`);
   if(opt.action==='list'){runCLI(['--yes',config.cli,'ls','-g'],{dryRun:opt.dryRun});return;}
   if(opt.action==='check'){runCLI(['--yes',config.cli,'check'],{dryRun:opt.dryRun});return;}
   const state=getState();
   const tracked=trackedNames();
-  const legacy=listLegacyConflicts(config,tracked,state.names);
+  const legacy=listLegacyConflicts(selected,tracked,state.names);
   const leftovers=state.names.filter(n=>!config.skills.some(s=>s.name===n));
   if(opt.dryRun){
     say('DRY RUN — no downloads, installs, removals or changes.');
     if(legacy.length)for(const x of legacy)say(`${opt.migrateLegacy?'BACKUP':'CONFLICT'}: ${x.entry}`);
-    for(const skill of config.skills)runCLI(cliArgs(skill,config),{dryRun:true});
+    for(const skill of selected.skills)runCLI(cliArgs(skill,config),{dryRun:true});
     if(leftovers.length)for(const n of leftovers)say(`${opt.prune?'REMOVE':'KEEP (use --prune)'}: ${n}`);
     return;
   }
@@ -155,7 +164,7 @@ async function main(){
     throw Error(`Legacy/untracked skill entries would conflict:\n${legacy.map(x=>'  '+x.entry).join('\n')}\nReview them, then rerun with --migrate-legacy to back them up before using Vercel.`);
   }
   if(opt.migrateLegacy&&legacy.length){say('Backing up old custom-managed skills (not deleting them) ...');migrate(legacy);}
-  for(const skill of config.skills){
+  for(const skill of selected.skills){
     say(`Installing ${skill.name} with Vercel Skills CLI ...`);
     runCLI(cliArgs(skill,config));
   }
@@ -168,7 +177,7 @@ async function main(){
   } else if(leftovers.length){
     say(`Preserved former skills not in skills.json: ${leftovers.join(', ')} (pass --prune to remove)`);
   }
-  writeAtomic(managedState,{schemaVersion:1,names:opt.prune?config.skills.map(s=>s.name):[...new Set([...state.names,...config.skills.map(s=>s.name)])]});
+  writeAtomic(managedState,{schemaVersion:1,names:[...new Set([...(opt.prune?state.names.filter(n=>config.skills.some(s=>s.name===n)):state.names),...selected.skills.map(s=>s.name)])]});
   say('Complete. Vercel owns skill installation and the global lockfile. Existing Matt Pocock and Superpowers were not modified.');
 }
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){

@@ -3,7 +3,11 @@
 set -euo pipefail
 repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 [[ -f "$repo_dir/bin/deploy-config.mjs" ]] || { echo "Run from the complete agent-stack checkout." >&2; exit 1; }
-if (( $# )); then echo 'Usage: bash install-all.sh (no arguments)' >&2; exit 2; fi
+profile_flag=''
+if (( $# )); then
+  if [[ $# != 2 || "$1" != --profile || ( "$2" != work && "$2" != home ) ]]; then echo 'Usage: bash bin/install-all.sh [--profile work|home]' >&2; exit 2; fi
+  profile_flag="$2"
+fi
 for cmd in node npm git; do
   command -v "$cmd" >/dev/null 2>&1 || { echo "Missing prerequisite: $cmd" >&2; exit 1; }
 done
@@ -12,6 +16,13 @@ if [[ "$(command -v npm)" == /mnt/c/* ]]; then
 fi
 node -e 'if (parseInt(process.versions.node) < 22) process.exit(1)'
 config_dir="${OPENCODE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/opencode}"
+profile="$(node --input-type=module - "$repo_dir/bin/profile.mjs" "$config_dir" "$profile_flag" <<'JS'
+import {pathToFileURL} from 'node:url';
+const {resolveProfile}=await import(pathToFileURL(process.argv[2]));
+try { console.log(resolveProfile({configDir:process.argv[3],flag:process.argv[4]||undefined})); }
+catch(error) { console.error(error.message); process.exit(1); }
+JS
+)"
 cli_packages="$config_dir/cli-packages"
 status_line_path="$cli_packages/node_modules/@rashidrazak/opencode-status-line"
 has_opencode=false
@@ -97,7 +108,7 @@ ensure_mcp context7 --url https://mcp.context7.com/mcp
 
 npm install --prefix "$cli_packages" --no-save --package-lock=false @rashidrazak/opencode-status-line@latest jsonc-parser@3.3.1
 edit_cli
-node "$repo_dir/bin/deploy-config.mjs" --config-dir "$config_dir"
+node "$repo_dir/bin/deploy-config.mjs" --profile "$profile" --config-dir "$config_dir"
 
 configure_serena_lifecycle() {
   node - "$config_dir" "$cli_packages/node_modules/jsonc-parser" <<'JS'
