@@ -62,13 +62,10 @@ test('prune only removes previously wrapper-owned skills after explicit --prune'
     const newState=JSON.parse(fs.readFileSync(statePath,'utf8'));assert.equal(newState.names.length,4);assert.ok(!newState.names.includes('old-owned-skill'));
   }finally{rm(f.base)}
 });
-test('list and check call Vercel, and install-all does not call skills installer',()=>{
+test('list and check call Vercel',()=>{
   const f=fixture();try{
     assert.equal(execute(f,['--list']).status,0);assert.equal(execute(f,['--check']).status,0);
     assert.match(calls(f)[0],/skills@1\.9\.0 ls -g/);assert.match(calls(f)[1],/skills@1\.9\.0 check/);
-    for(const n of ['install-all.sh','install-all.ps1']){
-      const txt=fs.readFileSync(path.join(root,'bin',n),'utf8');assert.doesNotMatch(txt,/install-skills\.(sh|ps1|mjs)/);
-    }
   }finally{rm(f.base)}
 });
 test('legacy conflict detector ignores CLI tracked or previously stack-managed entries',()=>{
@@ -79,13 +76,18 @@ test('legacy conflict detector ignores CLI tracked or previously stack-managed e
     assert.ok(!conflicts.some(x=>x.name==='drawio'));
   }finally{rm(f.base)}
 });
-test('profile-only skills are skipped in installs, dry runs and lists without pruning them',()=>{
+test('profile-only skills are skipped, then pruned after a managed profile switch',()=>{
   const f=fixture();try{
     const custom=structuredClone(manifest);custom.skills[0].profiles=['work'];const file=path.join(f.base,'skills.json');fs.writeFileSync(file,JSON.stringify(custom));
     f.env.AGENT_STACK_PROFILE='home';
     for(const args of [['--dry-run'],['--list','--dry-run']]){const r=execute(f,['--manifest',file,...args]);assert.equal(r.status,0,r.stderr);assert.match(r.stdout,/SKIP.*code-simplifier.*profile: work only/);assert.doesNotMatch(r.stdout,/add getsentry\/skills/);}
     const result=execute(f,['--manifest',file,'--prune']);assert.equal(result.status,0,result.stderr);assert.equal(calls(f).length,3);assert.ok(calls(f).every(c=>!c.includes('getsentry/skills')));
     f.env.AGENT_STACK_PROFILE='work';assert.equal(execute(f,['--manifest',file]).status,0);assert.equal(calls(f).length,7);
+    f.env.AGENT_STACK_PROFILE='home';
+    const switched=execute(f,['--manifest',file,'--prune']);assert.equal(switched.status,0,switched.stderr);
+    const log=calls(f);assert.equal(log.length,11);assert.match(log[10],/remove --global code-simplifier --yes/);
+    const state=JSON.parse(fs.readFileSync(path.join(f.home,'.agents','.vercel-skillstack.json'),'utf8'));
+    assert.equal(state.names.length,3);assert.ok(!state.names.includes('code-simplifier'));
   }finally{rm(f.base)}
 });
 test('manifest rejects invalid profiles',()=>{

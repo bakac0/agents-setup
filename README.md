@@ -4,104 +4,44 @@ A reproducible OpenCode v2 configuration with one agent source and per-machine m
 
 ## Install or update
 
-Keep the complete checkout. The install scripts now share one canonical source for the owned policy, agents and translator; they are no longer standalone single-file installers. Use Node.js 22+ (24.15+ if testing Context Mode), npm, Git and stable OpenCode >=2.2.5 and <3. Linux/WSL requires Linux Node/npm and curl. OpenCode itself is not installed by these scripts. Back up the existing OpenCode configuration and stop active sessions before migration.
-
-macOS/Linux/WSL:
+Use Node.js 22.20+, npm, Git and stable OpenCode >=2.2.5 and <3. Both wrappers execute the same `bin/install.mjs`; select `--profile work|home` (otherwise `AGENT_STACK_PROFILE`, then `<config>/stack-profile` is used). `node bin/install.mjs --help` handles help before the execution loop and prints the ordered plan without running commands or writing configuration. If OpenCode is absent, only Playwright CLI is updated.
 
 ```bash
-bash bin/install-all.sh --profile work
+bash bin/install-all.sh --profile work       # macOS, Linux, WSL
+# Windows PowerShell: & .\bin\install-all.ps1 --profile home
 ```
 
-Windows PowerShell (from the checkout):
+1. Check prerequisites.
+2. Resolve profile.
+3. Check OpenCode.
+4. Install Playwright CLI.
+5. Install OpenCode plugins.
+6. Configure Context7 MCP.
+7. Install status line.
+8. Deploy agents and configuration.
+9. Install and prune skills.
+10. Install Serena and ProjectMem MCP servers.
+11. Install Plannotator.
+12. Install RTK.
+13. Refresh and verify OpenCode.
 
-```powershell
-& .\bin\install-all.ps1 --profile home
-```
+Deployment writes the 18 profile-configured agents, then moves every other `*.md` in `<config>/agents` to `<config>/stack-backups/<timestamp>-<pid>/agents/`; non-Markdown files are untouched, and the backup directory is created before any write. The same command installs the active profile's entries from `skills.json`, skips entries excluded by their `profiles` array, and prunes installed skills outside the active set only when named by the manifest or recorded managed state. Playwright, Plannotator and RTK warn and continue on failure; other failures stop at the numbered step.
 
-The scripts install/update Playwright CLI, Superpowers, LiteLLM, Plannotator, Subagent Intervene, Status Line, Context7, Serena, ProjectMem, and RTK; deploy the global policy, all 18 agents with the selected profile's models and the local translator; preserve the translator's existing settings; and attempt to remove the legacy Ponytail, DCP and Beads package registrations if present. Beads databases/CLI and old skill folders are not deleted. Native RTK integration is initialized when the binary and standard config directory are available. Existing Serena idle timeout is preserved; otherwise the original 5-minute default is applied. Existing provider credentials are not replaced. Package updates use the existing upstream update mechanism; this is not a fully pinned dependency lock.
+## Skills: standalone management
 
-If OpenCode is absent, only Playwright CLI is updated. To deploy only the owned configuration without reinstalling tools or touching providers:
+The main installer applies and prunes [`skills.json`](skills.json) automatically through the pinned Vercel Skills CLI (`skills@1.9.0`). The standalone wrappers remain useful for preview, first-time legacy migration, listing and update checks:
 
 ```bash
-node bin/deploy-config.mjs --profile work
+bash bin/install-skills.sh --dry-run --prune
+bash bin/install-skills.sh --migrate-legacy   # only when requested after a conflict
+bash bin/install-skills.sh --list
+bash bin/install-skills.sh --check
+# PowerShell: use .\bin\install-skills.ps1 with the same arguments
 ```
 
-Profile resolution is `--profile work|home`, then `AGENT_STACK_PROFILE`, then `<config>/stack-profile`. Deployment persists the resolved name for subsequent runs. Missing, empty or unknown profiles fail rather than guessing; the corresponding `profiles/<name>.json` must exist. The skills installer uses the same resolver and accepts `--profile` and `--config-dir` too.
+The manifest contains `code-simplifier`, `better-writing`, `technical-writing` and `drawio`; an optional non-empty `profiles` array limits an entry to `work` or `home`. Migration backs up conflicting entries under `~/.agents/skill-migration-backups/`. Vercel owns downloaded files and lockfiles; the wrapper's `~/.agents/.vercel-skillstack.json` records managed names so pruning never targets unrelated skills. Existing Matt Pocock and Superpowers installations are not modified. Playwright's native skill setup remains separate: `playwright-cli install --skills=agents --global`.
 
-```text
-myagents/             # 18 authored Markdown agents, no model frontmatter
-profiles/work.json    # litellm/* model map
-profiles/home.json    # openai/*#effort model map
-skills.json           # explicit skill manifest; optional profiles: ["work"]
-```
-
-Use `--config-dir /actual/opencode/config` when needed. The deploy helper backs up changed existing files under `stack-backups/<timestamp>-<pid>/` inside that config directory. It updates a managed block in global `AGENTS.md`, replacing the exact original policy from the supplied archive or preserving unrelated global text. Review any preserved older rules for contradictions. Models are injected before the closing frontmatter delimiter. The 18 managed agent files are intentionally replaced; `<config>/agents/.agent-stack-deployed.json` records their names. Only stale files in that previous list are pruned and backed up; unlisted user agents survive. An old untracked `vision-gemini.md` must be reviewed manually, not guessed to be managed. The local plugin directory is auto-discovered by OpenCode. Do not add a second copy of the same plugin.
-
-## Skills: declarative Vercel Skills CLI (explicit install)
-
-**The main `bin/install-all.sh` and `bin/install-all.ps1` never install or update skills.** They manage apps, plugins, MCP, agents and the translator. Skill installation is an independent explicit step. The existing Matt Pocock `.skill-lock.json` and Superpowers upstream installation are untouched.
-
-The **editable source of truth** for the extra global skills is [`skills.json`](skills.json). It declares both target agents (`opencode` and `codex`), the desired skills and where they come from. The thin wrapper calls the **official [Vercel Skills CLI](https://github.com/vercel-labs/skills)** (`skills@1.9.0` pinned in the manifest); it does **not** clone GitHub repositories or maintain its own vendor copies. Vercel manages its own global lockfile and the shared `~/.agents/skills/` + agent integrations.
-
-Requires **Node.js >=22.20.0** and npm/npx. To preview and install on macOS, Linux or WSL:
-
-```bash
-bash bin/install-skills.sh --dry-run
-bash bin/install-skills.sh --migrate-legacy   # first upgrade from our old custom installer
-bash bin/install-skills.sh                    # subsequent updates, applies skills.json
-```
-
-On Windows PowerShell:
-
-```powershell
-.\bin\install-skills.ps1 --dry-run
-.\bin\install-skills.ps1 --migrate-legacy  # first upgrade only
-.\bin\install-skills.ps1
-```
-
-`--migrate-legacy` is necessary **only if** the previous custom installer left untracked skill directories/symlinks. Without it, the wrapper stops rather than silently overwriting them. Migration backs up only conflicting named entries to `~/.agents/skill-migration-backups/<timestamp>/`; unrelated user skills are not touched. Run `--dry-run` first to see which entries conflict. **No deletions by default**: removing a skill from `skills.json` preserves the former install. To remove entries that *this wrapper previously installed* and are no longer listed, run `bash bin/install-skills.sh --prune` (or PowerShell equivalent) after inspecting the plan with `--dry-run --prune`.
-
-| Skill | Origin | Owner |
-|---|---|---|
-| `code-simplifier` | `getsentry/skills` | Vercel downloads upstream |
-| `better-writing` | `forjd/better-writing` | Vercel downloads upstream |
-| `technical-writing` | `myskills/technical-writing/` | Our locally adapted skill; installed by Vercel |
-| `drawio` | Official `jgraph/drawio-mcp` skill | Vercel downloads upstream |
-
-The manifest currently contains **four** entries; it is unchanged. The earlier six-entry documentation included `external-research-handoff` and `projectmem-migrate`, neither of which is installed by this manifest. Entries may opt into one or both machine profiles with a non-empty `profiles` array; absent means both. `--dry-run` and `--list` print excluded entries with the profile reason. Switching profiles skips installation, but does not uninstall existing skill files.
-
-### Per-machine skill on/off
-
-```bash
-node bin/skills-toggle.mjs off drawio
-node bin/skills-toggle.mjs status
-node bin/skills-toggle.mjs on drawio
-```
-
-All commands accept `--config-dir DIR`. State lives in `<config>/skill-toggles.json`; disabling adds an exact `skill`/name/`deny` entry to the global `permissions` array in `opencode.json` (or the existing `opencode.jsonc`). Enabling removes that exact deny tuple only, preserving unrelated and extended rules. An unrelated wildcard deny can still prevent access. The first configuration write saves an original backup under `stack-backups/`; JSONC edits preserve comments and unrelated text. This requires `jsonc-parser`, installed by `install-all` under `<config>/cli-packages/`. Skill files are never moved or changed; these toggles enforce OpenCode permissions, not Codex permissions.
-
-For day-to-day checks:
-
-```bash
-bash bin/install-skills.sh --list           # Vercel: skills ls -g
-bash bin/install-skills.sh --check          # Vercel: skills check
-bash bin/install-skills.sh --dry-run        # Preview manifest application
-bash bin/install-skills.sh                  # Reapply list, update sources
-```
-
-`skills.json` is **our small global manifest**, because Vercel's `experimental_sync` uses project-local `package.json` and `.agents/skills/`, not your global skill installation. We deliberately use the **stable `skills add -g`** for the global setup. Vercel's own global lockfile may live in `~/.local/state/skills/.skill-lock.json` (depending on XDG configuration) or `~/.agents/.skill-lock.json` on older versions. The wrapper stores only the names it manages in `~/.agents/.vercel-skillstack.json`, so optional pruning never deletes unrelated skills. The repository's `.skill-lock.json` is the independent Matt Pocock metadata and is not modified.
-
-The `myskills/` contents, including adapted Technical Writing, are not overwritten by upstream updates. Their changes are applied on the next explicit installer run. Existing Superpowers skills keep the original plugin update path; **do not install a duplicate copy of Superpowers via this manifest**.
-
-Mermaid in Markdown remains the default for small diagrams. `drawio` generates editable diagrams on demand; it does **not** install Draw.io Desktop or the optional official Draw.io MCP. Install native applications with their own installers when required, and follow [Draw.io MCP documentation](https://github.com/jgraph/drawio-mcp/blob/main/mcp-tool-server/README.md#opencode) if you want it.
-
-For Codex, merge the relevant global rules from `AGENTS.md` into `~/.codex/AGENTS.md` deliberately, without overwriting unrelated instructions. Agents do not install missing skills autonomously. Caveman remains opt-in. Playwright has its own native skill setup and is not managed by this manifest:
-
-```bash
-playwright-cli install --skills=agents --global
-```
-
-The first installation has **not** been run against your actual OpenCode/Codex installation. The offline test suite checks manifest validation, CLI arguments, non-destructive first-run migration, repeat runs and pruning; actual GitHub/npm downloads require a normal environment with internet access and Node >=22.20.0.
+Per-machine permission toggles are still available with `node bin/skills-toggle.mjs off|on <skill>` and `node bin/skills-toggle.mjs status`; they edit `<config>/skill-toggles.json` and OpenCode permissions, not skill files or Codex permissions.
 
 ## Verify migration on the actual server
 
